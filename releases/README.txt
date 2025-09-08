@@ -30,8 +30,7 @@ This release includes packages for all major operating systems:
 - Sends notifications when complete
 
 📖 DOCUMENTATION:
-- README_GUI.md: GUI application guide
-- DEPLOYMENT_GUIDE.md: Technical deployment details
+- COMPLETE_DOCUMENTATION.md: Comprehensive guide with all information
 - Platform-specific README files for installation help
 
 🆘 SUPPORT:

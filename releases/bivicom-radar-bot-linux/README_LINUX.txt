@@ -20,8 +20,8 @@
 - Sends notifications when complete
 
 📖 DETAILED INSTRUCTIONS:
-- Read README_GUI.md for full documentation
-- Read DEPLOYMENT_GUIDE.md for technical details
+- Read COMPLETE_DOCUMENTATION.md for full documentation
+- All technical details and GUI instructions included
 
 🆘 SUPPORT:
 - Check the log files if something goes wrong

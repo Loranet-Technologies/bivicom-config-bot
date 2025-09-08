@@ -31,9 +31,7 @@ create_platform_package() {
     cp bot_config.json "$platform_dir/"
     cp requirements.txt "$platform_dir/"
     cp requirements_gui.txt "$platform_dir/"
-    cp README.md "$platform_dir/"
-    cp README_GUI.md "$platform_dir/"
-    cp DEPLOYMENT_GUIDE.md "$platform_dir/"
+    cp COMPLETE_DOCUMENTATION.md "$platform_dir/"
     cp LICENSE "$platform_dir/"
     
     # Create platform-specific installation script
@@ -101,7 +99,7 @@ echo 🚀 How to launch:
 echo 1. Double-click the desktop shortcut
 echo 2. Or run: python radar_bot_gui.py
 echo.
-echo 📖 Read README_GUI.md for detailed instructions
+echo 📖 Read COMPLETE_DOCUMENTATION.md for detailed instructions
 echo.
 echo ✅ Ready to use!
 pause
@@ -130,8 +128,8 @@ EOF
 - Sends notifications when complete
 
 📖 DETAILED INSTRUCTIONS:
-- Read README_GUI.md for full documentation
-- Read DEPLOYMENT_GUIDE.md for technical details
+- Read COMPLETE_DOCUMENTATION.md for full documentation
+- All technical details and GUI instructions included
 
 🆘 SUPPORT:
 - Check the log files if something goes wrong
@@ -234,7 +232,7 @@ echo "🚀 How to launch:"
 echo "1. Double-click the desktop shortcut"
 echo "2. Or run: python3 radar_bot_gui.py"
 echo ""
-echo "📖 Read README_GUI.md for detailed instructions"
+echo "📖 Read COMPLETE_DOCUMENTATION.md for detailed instructions"
 echo ""
 echo "✅ Ready to use!"
 EOF
@@ -264,8 +262,8 @@ EOF
 - Sends notifications when complete
 
 📖 DETAILED INSTRUCTIONS:
-- Read README_GUI.md for full documentation
-- Read DEPLOYMENT_GUIDE.md for technical details
+- Read COMPLETE_DOCUMENTATION.md for full documentation
+- All technical details and GUI instructions included
 
 🆘 SUPPORT:
 - Check the log files if something goes wrong
@@ -403,7 +401,7 @@ echo "1. Double-click the desktop shortcut"
 echo "2. Or open Applications folder and double-click 'Bivicom Radar Bot'"
 echo "3. Or use Spotlight search: Cmd+Space, type 'Bivicom'"
 echo ""
-echo "📖 Read README_GUI.md for detailed instructions"
+echo "📖 Read COMPLETE_DOCUMENTATION.md for detailed instructions"
 echo ""
 echo "✅ Ready to use!"
 EOF
@@ -433,8 +431,8 @@ EOF
 - Sends notifications when complete
 
 📖 DETAILED INSTRUCTIONS:
-- Read README_GUI.md for full documentation
-- Read DEPLOYMENT_GUIDE.md for technical details
+- Read COMPLETE_DOCUMENTATION.md for full documentation
+- All technical details and GUI instructions included
 
 🆘 SUPPORT:
 - Check the log files if something goes wrong
@@ -485,8 +483,7 @@ This release includes packages for all major operating systems:
 - Sends notifications when complete
 
 📖 DOCUMENTATION:
-- README_GUI.md: GUI application guide
-- DEPLOYMENT_GUIDE.md: Technical deployment details
+- COMPLETE_DOCUMENTATION.md: Comprehensive guide with all information
 - Platform-specific README files for installation help
 
 🆘 SUPPORT:

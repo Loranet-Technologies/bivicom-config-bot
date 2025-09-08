@@ -37,7 +37,7 @@ echo 🚀 How to launch:
 echo 1. Double-click the desktop shortcut
 echo 2. Or run: python radar_bot_gui.py
 echo.
-echo 📖 Read README_GUI.md for detailed instructions
+echo 📖 Read COMPLETE_DOCUMENTATION.md for detailed instructions
 echo.
 echo ✅ Ready to use!
 pause

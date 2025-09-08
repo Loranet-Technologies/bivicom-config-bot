@@ -1,49 +1,108 @@
 # Bivicom Radar Bot
 
-An automated deployment bot for Bivicom Radar infrastructure that performs network discovery, device configuration, and infrastructure deployment via SSH.
+A comprehensive automation system for deploying and configuring Bivicom Radar devices. This project provides both command-line and GUI interfaces for automated device setup, network configuration, and infrastructure deployment.
 
-## 🚀 Features
+## 🎯 Overview
 
-- **Network Discovery**: Automatically scans network ranges for active devices
-- **MAC Address Validation**: Validates devices against authorized Bivicom manufacturer prefixes
-- **Network Configuration**: Configures WAN/LAN interfaces on OpenWrt devices
-- **SSH Automation**: Connects to devices using default credentials (admin/admin)
-- **Automated Deployment**: Runs the Bivicom Radar infrastructure setup script remotely
-- **Progress Monitoring**: Real-time monitoring with comprehensive logging
-- **Delay System**: Configurable delays for controlled execution
-- **Single Log File**: Dynamic log files with MAC address and timestamp naming
+The Bivicom Radar Bot is designed to automate the complete setup process for Bivicom Radar devices, including:
 
-## 📋 Prerequisites
+- **Network Configuration**: Automatic WAN/LAN interface setup
+- **Connectivity Verification**: Internet connectivity testing and validation
+- **Infrastructure Deployment**: Automated installation of Loranet infrastructure
+- **Device Discovery**: Network scanning and MAC address validation
+- **Real-time Monitoring**: Live logging and progress tracking
 
-- Python 3.6 or higher
-- Network access to target devices
+## 🏗️ Architecture
+
+The system consists of several interconnected components:
+
+### Core Components
+
+1. **Master Bot** (`master_bot.py`) - Main orchestration engine
+2. **Script No. 1** (`script_no1.py`) - Network configuration and device reboot
+3. **Script No. 2** (`script_no2.py`) - WAN internet connectivity verification
+4. **Script No. 3** (`script_no3.py`) - Loranet infrastructure deployment bot
+5. **GUI Application** (`radar_bot_gui.py`) - User-friendly interface
+
+### Configuration
+
+- **`bot_config.json`** - Main configuration file with network settings, credentials, and deployment parameters
+- **`requirements.txt`** - Core Python dependencies
+- **`requirements_gui.txt`** - GUI-specific dependencies
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.7 or higher
+- Network access to target devices (192.168.1.1)
 - SSH access with admin/admin credentials
-- Target devices must be on the same network
+- Internet connectivity for infrastructure deployment
 
-## 🛠️ Installation
+### Installation
 
-### Quick Install
+1. **Clone the repository**:
+   ```bash
+   git clone <repository-url>
+   cd bivicom-radar-bot
+   ```
+
+2. **Create virtual environment**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **For GUI support**:
+   ```bash
+   pip install -r requirements_gui.txt
+   ```
+
+### Running the Application
+
+#### Command Line Interface
+
+**Run the complete automation cycle**:
 ```bash
-# Download and install the bot
-curl -sSL https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar-bot/main/install_bot.sh | bash
+python3 master_bot.py
 ```
 
-### Manual Install
+**Run individual scripts**:
 ```bash
-# Clone the repository
-git clone https://github.com/Loranet-Technologies/bivicom-radar-bot.git
-cd bivicom-radar-bot
+# Network configuration only
+python3 script_no1.py
 
-# Install Python dependencies
-pip3 install -r requirements.txt
+# Connectivity verification only
+python3 script_no2.py
 
-# Make scripts executable
-chmod +x *.py
+# Infrastructure deployment only
+python3 script_no3.py
 ```
 
-## ⚙️ Configuration
+#### GUI Interface
 
-Edit `bot_config.json` to customize the bot behavior:
+**Launch the GUI application**:
+```bash
+python3 radar_bot_gui.py
+```
+
+The GUI provides:
+- Real-time log display with color-coded messages
+- Progress indicators and statistics
+- Start/Stop/Pause controls
+- System notifications on completion
+- Cross-platform compatibility
+
+## 📋 Configuration
+
+### Network Settings
+
+Edit `bot_config.json` to customize:
 
 ```json
 {
@@ -56,232 +115,235 @@ Edit `bot_config.json` to customize the bot behavior:
     "00:52:24",
     "02:52:24"
   ],
-  "authorized_ouis": {
-    "a4:7a:cf": "VIBICOM COMMUNICATIONS INC.",
-    "00:06:2c": "Bivio Networks",
-    "00:24:d9": "BICOM, Inc.",
-    "00:52:24": "Bivicom (custom/private)",
-    "02:52:24": "Bivicom (alternative)"
-  },
-  "deployment_mode": "auto",
-  "ssh_timeout": 10,
-  "scan_timeout": 5,
-  "max_threads": 50,
-  "log_level": "INFO",
-  "backup_before_deploy": true,
-  "verify_deployment": true,
-  "security_logging": true,
-  "strict_mac_validation": false,
   "network_configuration": {
     "enable_network_config": true,
     "wan_interface": "eth0",
     "lan_interface": "eth1",
     "lan_ip": "192.168.1.1",
-    "lan_netmask": "255.255.255.0",
     "wan_protocol": "dhcp",
-    "lan_protocol": "dhcp",
-    "reboot_timeout": 300,
-    "ssh_ready_delay": 30
-  },
-  "server_targets": {
-    "192.168.1.1": {
-      "priority": 1,
-      "description": "Main server requiring network configuration",
-      "requires_network_config": true,
-      "requires_reboot": true
-    }
+    "lan_protocol": "dhcp"
   }
 }
 ```
 
-### Configuration Options
+### Key Configuration Options
 
-- **network_range**: Network range to scan (CIDR notation)
-- **default_credentials**: SSH username and password for target devices
-- **target_mac_prefixes**: MAC address prefixes to identify target devices
-- **deployment_mode**: "auto", "interactive", or "manual"
-- **ssh_timeout**: SSH connection timeout in seconds
-- **scan_timeout**: Network scan timeout per host
-- **max_threads**: Maximum concurrent threads for scanning
-- **strict_mac_validation**: Enable/disable MAC address validation
-- **network_configuration**: Network interface configuration settings
-- **server_targets**: Specific server configurations
+- **`network_range`**: IP range to scan for devices
+- **`target_mac_prefixes`**: Authorized MAC address prefixes
+- **`deployment_mode`**: "auto", "interactive", or "manual"
+- **`ssh_timeout`**: SSH connection timeout in seconds
+- **`max_threads`**: Maximum concurrent scanning threads
+- **`strict_mac_validation`**: Enable/disable MAC address validation
 
-## 🎯 Usage
+## 🔄 Workflow
 
-### Master Bot (Recommended)
+### Master Bot Cycle
 
-The master bot orchestrates the entire deployment process:
+The Master Bot orchestrates a complete automation cycle:
 
+1. **IP Availability Check** - Verify target device (192.168.1.1) is reachable
+2. **SSH Authentication** - Test login with admin/admin credentials
+3. **Log File Creation** - Create timestamped log file with device MAC
+4. **Script No. 1** - Network configuration and device reboot
+5. **Script No. 2** - WAN internet connectivity verification (with retry logic)
+6. **Script No. 3** - Loranet infrastructure deployment
+
+### Script No. 1: Network Configuration
+
+- Configures WAN interface (eth0) for DHCP internet access
+- Configures LAN interface (eth1) for local network
+- Applies network configuration using UCI commands
+- Executes WAN configuration script
+- Tests internet connectivity
+- Reboots device to apply changes
+
+### Script No. 2: Connectivity Verification
+
+- Checks WAN interface status and IP assignment
+- Verifies network routing table
+- Tests network services (DHCP, interfaces)
+- Performs internet connectivity tests:
+  - DNS resolution
+  - Ping to Google DNS (8.8.8.8)
+  - HTTP connectivity tests
+- Provides comprehensive connectivity report
+
+### Script No. 3: Infrastructure Deployment
+
+- Scans network for active devices
+- Validates MAC addresses against authorized prefixes
+- Tests SSH connectivity to discovered devices
+- Deploys Loranet infrastructure via curl script
+- Monitors deployment progress
+- Verifies successful installation
+
+## 🛡️ Security Features
+
+### MAC Address Validation
+
+The system includes comprehensive MAC address validation:
+
+- **Authorized OUIs**: Pre-configured Bivicom manufacturer prefixes
+- **Custom Prefixes**: Configurable target MAC prefixes
+- **Security Logging**: Audit trail for unauthorized devices
+- **Strict Validation**: Optional enforcement of MAC address requirements
+
+### Security Audit Logging
+
+All security events are logged to `security_audit.log`:
+- Invalid MAC addresses
+- Unauthorized device attempts
+- SSH connection failures
+- Configuration changes
+
+## 📊 Monitoring and Logging
+
+### Log Files
+
+- **Main Log**: `{MAC_ADDRESS}_{TIMESTAMP}.log` - Complete cycle log
+- **Security Log**: `security_audit.log` - Security events
+- **Deployment Reports**: `deployment_report_{TIMESTAMP}.txt` - Deployment summaries
+
+### Log Levels
+
+- **INFO**: General information and progress updates
+- **SUCCESS**: Successful operations and completions
+- **WARNING**: Non-critical issues and retries
+- **ERROR**: Failures and critical issues
+- **DEBUG**: Detailed debugging information
+
+### GUI Monitoring
+
+The GUI provides real-time monitoring with:
+- Color-coded log messages
+- Progress indicators
+- Statistics tracking (cycles, devices, uptime)
+- System notifications on completion
+
+## 🔧 Advanced Usage
+
+### Custom Deployment Modes
+
+**Auto Mode** (default):
 ```bash
-# Run the complete deployment process
-python3 master_bot.py
-```
-
-The master bot will:
-1. Check if `192.168.1.1` is reachable
-2. Test SSH login with admin/admin
-3. Create a log file with MAC address and timestamp
-4. Run Script No. 1 (Network Configuration)
-5. Run Script No. 2 (Connectivity Verification)
-6. Run Script No. 3 (Infrastructure Deployment)
-7. Skip stages if already completed
-
-### Individual Scripts
-
-#### Script No. 1 - Network Configuration
-```bash
-# Configure network settings and reboot
-python3 script_no1.py
-```
-
-#### Script No. 2 - Connectivity Verification
-```bash
-# Verify WAN internet connectivity
-python3 script_no2.py
-```
-
-#### Script No. 3 - Infrastructure Deployment
-```bash
-# Deploy Bivicom Radar infrastructure
 python3 script_no3.py
 ```
 
-### Legacy Bot (script_no3.py)
-
-The legacy bot can still be used for direct deployment:
-
-```bash
-# Deploy to all discovered devices (auto mode)
-python3 script_no3.py
-
-# Deploy to specific server only
-python3 script_no3.py --server-only
-
-# Network configuration only
-python3 script_no3.py --network-config-only
-```
-
-## 🔍 How It Works
-
-### Master Bot Process
-
-1. **IP Availability Check**: Pings `192.168.1.1` to verify reachability
-2. **SSH Login Test**: Tests SSH connection with admin/admin credentials
-3. **MAC Address Detection**: Retrieves device MAC from ARP table
-4. **Log File Creation**: Creates timestamped log file with MAC address
-5. **Sequential Script Execution**: Runs scripts in order with delays
-6. **Stage Skipping**: Checks completion status to avoid re-running completed stages
-7. **Comprehensive Logging**: All output logged to single file
-
-### Network Configuration Process
-
-For servers requiring network configuration:
-
-1. **SSH Connection**: Connects to server with admin credentials
-2. **Network Configuration**: Configures WAN (eth0) and LAN (eth1) interfaces
-3. **UCI Commands**: Uses `sudo uci set` commands for OpenWrt configuration
-4. **Interface Setup**: 
-   - WAN: eth0 with DHCP protocol
-   - LAN: eth1 with DHCP protocol
-   - Bridge: Preserved intact
-5. **Configuration Apply**: Commits and reloads network configuration
-6. **Device Reboot**: Reboots device to apply changes
-7. **Wait for Online**: Waits for device to come back online
-
-### Infrastructure Deployment Process
-
-1. **Curl Installation**: Ensures curl is available (apt/opkg fallback)
-2. **Deployment Command**: Executes Bivicom Radar installation
-3. **Auto Mode**: Always uses `--auto` flag for unattended installation
-4. **Progress Monitoring**: Real-time monitoring of deployment progress
-5. **Verification**: Verifies successful deployment
-
-## 📊 Delay System
-
-The master bot includes a comprehensive delay system for controlled execution:
-
-```python
-delays = {
-    "ip_check": 2,           # Delay after IP check
-    "ssh_test": 3,           # Delay after SSH test
-    "log_creation": 1,       # Delay after log creation
-    "between_scripts": 5,    # Delay between scripts
-    "script_completion": 2,  # Delay after script completion
-    "final_success": 3       # Delay before final success message
+**Interactive Mode**:
+```json
+{
+  "deployment_mode": "interactive"
 }
 ```
 
-## 📝 Logging
-
-### Log File Naming
-Log files are named with the device's MAC address and timestamp:
-```
-a019b2d27af9_20250909_001637.log
-```
-
-### Log Structure
-```
-[2025-09-09 00:16:37] [INFO] ================================================
-[2025-09-09 00:16:37] [INFO] MASTER BOT EXECUTION STARTED
-[2025-09-09 00:16:37] [INFO] Target IP: 192.168.1.1
-[2025-09-09 00:16:37] [INFO] Device MAC: a019b2d27af9
-[2025-09-09 00:16:37] [INFO] ================================================
+**Manual Mode**:
+```json
+{
+  "deployment_mode": "manual"
+}
 ```
 
-## 🛡️ Security Considerations
+### Network Configuration Testing
 
-- **MAC Address Validation**: Only deploys to authorized Bivicom devices (configurable)
-- **SSH Security**: Uses admin/admin credentials (change in production)
-- **Network Trust**: Ensure the bot runs on a trusted network
-- **Audit Trail**: Complete logging of all operations
+Test network configuration commands without execution:
+```bash
+python3 -c "from script_no3 import LoranetDeploymentBot; bot = LoranetDeploymentBot(); bot.test_network_configuration_commands()"
+```
+
+### Server-Only Deployment
+
+Deploy to specific server without network discovery:
+```bash
+python3 -c "from script_no3 import LoranetDeploymentBot; bot = LoranetDeploymentBot(); bot.deploy_to_server_only()"
+```
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **No devices found**: Check network range and MAC prefixes
-2. **SSH connection failed**: Verify credentials and network connectivity
-3. **Deployment timeout**: Increase timeout values in configuration
-4. **Permission denied**: Ensure the bot has necessary permissions
+1. **SSH Connection Failed**
+   - Verify device is reachable: `ping 192.168.1.1`
+   - Check credentials in `bot_config.json`
+   - Ensure SSH service is running on target device
+
+2. **MAC Address Not Found**
+   - Check ARP table: `arp -a`
+   - Verify network connectivity
+   - Consider disabling strict MAC validation
+
+3. **Internet Connectivity Issues**
+   - Verify WAN interface configuration
+   - Check DHCP client status
+   - Test manual internet access
+
+4. **GUI Not Displaying**
+   - Install tkinter: `brew install python-tk` (macOS)
+   - Check virtual environment activation
+   - Verify GUI dependencies installation
 
 ### Debug Mode
 
-Enable debug logging by setting log level in configuration:
-
+Enable detailed logging:
 ```json
 {
   "log_level": "DEBUG"
 }
 ```
 
-## 📋 Deployment Command
+### Manual Verification
 
-The bot uses the following command for Bivicom Radar deployment:
-
+Test individual components:
 ```bash
-curl -sSL https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh | bash -s -- --auto
+# Test SSH connection
+python3 -c "from script_no3 import LoranetDeploymentBot; bot = LoranetDeploymentBot(); print(bot.test_ssh_connection('192.168.1.1', 'admin', 'admin'))"
+
+# Test network scan
+python3 -c "from script_no3 import LoranetDeploymentBot; bot = LoranetDeploymentBot(); print(bot.scan_network('192.168.1.0/24'))"
 ```
+
+## 📦 Distribution Packages
+
+The project includes platform-specific distribution packages:
+
+- **Windows 11**: `BivicomRadarBot_Windows11.zip`
+- **Ubuntu 20+**: `BivicomRadarBot_Ubuntu20+.zip`
+- **macOS**: `BivicomRadarBot_macOS.zip`
+
+Each package includes:
+- Complete application with dependencies
+- Platform-specific installation scripts
+- Desktop shortcuts and app bundles
+- Comprehensive documentation
 
 ## 🤝 Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Test thoroughly
+4. Add tests if applicable
 5. Submit a pull request
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 👨‍💻 Author
+## 🆘 Support
 
-**Aqmar** - *Initial work* - [Loranet Technologies](https://github.com/Loranet-Technologies)
+For support and questions:
+- Check the troubleshooting section
+- Review log files for error details
+- Create an issue with detailed information
+- Include system information and configuration
 
-## 🙏 Acknowledgments
+## 🔄 Version History
 
-- OpenWrt community for UCI configuration system
-- Node-RED team for the excellent platform
-- Docker team for containerization
-- Tailscale for VPN solution
+- **v1.0** - Initial release with core automation functionality
+- **v1.1** - Added GUI interface and cross-platform support
+- **v1.2** - Enhanced security features and MAC validation
+- **v1.3** - Improved error handling and retry logic
+
+---
+
+**Author**: Aqmar  
+**Date**: 2025-01-09  
+**Version**: 1.3

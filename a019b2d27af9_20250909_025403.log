@@ -1,0 +1,254 @@
+# Master Bot Log File
+# Device IP: 192.168.1.1
+# Device MAC: a019b2d27af9
+# Created: 2025-09-09 02:54:11
+# Log File: a019b2d27af9_20250909_025403.log
+
+[2025-09-09 02:54:11] [SUCCESS] Created log file: a019b2d27af9_20250909_025403.log
+[2025-09-09 02:54:11] [INFO] Log file created (waiting 1s)
+[2025-09-09 02:54:12] [INFO] Step 4: Running Script No. 1 (Network Configuration)
+[2025-09-09 02:54:12] [INFO] Running script_no1.py - Network Configuration and Reboot
+[2025-09-09 02:54:12] [INFO] Output will be logged to a019b2d27af9_20250909_025403.log
+
+============================================================
+Starting script_no1.py at 2025-09-09 02:54:12
+============================================================
+Script No. 1: Network Configuration and Reboot
+==============================================
+This script will:
+1. Configure WAN interface for DHCP internet access
+2. Configure LAN interface for static local network
+3. Apply network configuration changes
+4. Reboot device to enable WAN internet access
+
+[2025-09-09 02:54:12] [INFO] ============================================================
+[2025-09-09 02:54:12] [INFO] SCRIPT NO. 1: NETWORK CONFIGURATION AND REBOOT
+[2025-09-09 02:54:12] [INFO] ============================================================
+[2025-09-09 02:54:12] [INFO] Target device: 192.168.1.1
+[2025-09-09 02:54:12] [INFO] Username: admin
+[2025-09-09 02:54:12] [INFO] Password: *****
+[2025-09-09 02:54:12] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 02:54:13] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 02:54:13] [INFO] Step 2: Creating backup of current configuration
+[2025-09-09 02:54:13] [SUCCESS] Backup created successfully
+[2025-09-09 02:54:13] [INFO] Step 3: Configuring network settings
+[2025-09-09 02:54:13] [INFO] Configuring network settings on 192.168.1.1
+[2025-09-09 02:54:13] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 02:54:13] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 02:54:13] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 02:54:13] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 02:54:13] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 02:54:13] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 02:54:13] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 02:54:13] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 02:54:13] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 02:54:14] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 02:54:14] [INFO] [192.168.1.1] Executing: sudo uci commit network 2>/dev/null || echo 'Network commit failed or no changes'
+[2025-09-09 02:54:14] [SUCCESS] [192.168.1.1] Command successful: sudo uci commit network 2>/dev/null || echo 'Network commit failed or no changes'
+[2025-09-09 02:54:14] [INFO] [192.168.1.1] Executing: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 02:54:14] [SUCCESS] [192.168.1.1] Command successful: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 02:54:14] [SUCCESS] Network configuration completed on 192.168.1.1
+[2025-09-09 02:54:14] [INFO] Step 4: Rebooting device to apply network configuration
+[2025-09-09 02:54:14] [INFO] Rebooting device 192.168.1.1 to apply network configuration
+[2025-09-09 02:54:16] [SUCCESS] Reboot command sent to 192.168.1.1
+[2025-09-09 02:54:16] [INFO] Step 5: Waiting for device to come back online
+[2025-09-09 02:54:16] [INFO] Waiting for 192.168.1.1 to come back online after reboot...
+[2025-09-09 02:54:16] [SUCCESS] Device 192.168.1.1 is back online
+[2025-09-09 02:54:16] [INFO] ============================================================
+[2025-09-09 02:54:16] [SUCCESS] SCRIPT NO. 1 COMPLETED SUCCESSFULLY!
+[2025-09-09 02:54:16] [INFO] ============================================================
+[2025-09-09 02:54:16] [INFO] Network configuration applied and device rebooted
+[2025-09-09 02:54:16] [INFO] WAN internet access should now be enabled
+[2025-09-09 02:54:16] [INFO] Device is ready for Script No. 2 (Infrastructure Deployment)
+
+✅ Script No. 1 completed successfully!
+🚀 Ready to run Script No. 2 (Infrastructure Deployment)
+[2025-09-09 02:54:16] [SUCCESS] Script script_no1.py completed successfully
+
+============================================================
+Script script_no1.py completed with return code: 0
+Completed at: 2025-09-09 02:54:16
+============================================================
+
+[2025-09-09 02:54:16] [INFO] Script No. 1 completed (waiting 2s)
+[2025-09-09 02:54:18] [INFO] Preparing for Script No. 2 (waiting 5s)
+[2025-09-09 02:54:23] [INFO] Step 5: Running Script No. 2 (Connectivity Verification)
+[2025-09-09 02:54:23] [INFO] Running script_no2.py - WAN Internet Connectivity Verification
+[2025-09-09 02:54:23] [INFO] Output will be logged to a019b2d27af9_20250909_025403.log
+
+============================================================
+Starting script_no2.py at 2025-09-09 02:54:23
+============================================================
+Script No. 2: WAN Internet Connection Verification
+==================================================
+This script will:
+1. SSH login to the device
+2. Check WAN interface status
+3. Verify network routes
+4. Check network services
+5. Test internet connectivity
+6. Logout and prepare for Script No. 3
+
+[2025-09-09 02:54:23] [INFO] ============================================================
+[2025-09-09 02:54:23] [INFO] SCRIPT NO. 2: WAN INTERNET CONNECTION VERIFICATION
+[2025-09-09 02:54:23] [INFO] ============================================================
+[2025-09-09 02:54:23] [INFO] Target device: 192.168.1.1
+[2025-09-09 02:54:23] [INFO] Username: admin
+[2025-09-09 02:54:23] [INFO] Password: *****
+[2025-09-09 02:54:23] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 02:54:24] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 02:54:24] [INFO] Step 2: Checking WAN interface status
+[2025-09-09 02:54:24] [INFO] Checking WAN interface status on 192.168.1.1
+[2025-09-09 02:54:24] [WARNING] WAN interface (eth0) has no IP address
+[2025-09-09 02:54:24] [INFO] Step 3: Checking network routes
+[2025-09-09 02:54:24] [INFO] Checking network routes on 192.168.1.1
+[2025-09-09 02:54:24] [WARNING] No default routes found
+[2025-09-09 02:54:24] [INFO] Step 4: Checking network services
+[2025-09-09 02:54:24] [INFO] Checking network services on 192.168.1.1
+[2025-09-09 02:54:24] [SUCCESS] Network: Network interfaces OK
+[2025-09-09 02:54:24] [SUCCESS] DHCP Client: DHCP client not running
+[2025-09-09 02:54:24] [INFO] Step 5: Checking internet connectivity
+[2025-09-09 02:54:24] [INFO] Checking internet connectivity from 192.168.1.1
+[2025-09-09 02:54:24] [INFO] Running DNS Resolution test...
+[2025-09-09 02:54:24] [WARNING] DNS Resolution: DNS FAILED
+[2025-09-09 02:54:24] [INFO] Running Ping Google DNS test...
+[2025-09-09 02:54:24] [WARNING] Ping Google DNS: PING FAILED
+[2025-09-09 02:54:24] [INFO] Running Ping Google test...
+[2025-09-09 02:54:24] [WARNING] Ping Google: PING FAILED
+[2025-09-09 02:54:24] [INFO] Running HTTP Test test...
+[2025-09-09 02:54:24] [WARNING] HTTP Test: HTTP FAILED
+[2025-09-09 02:54:24] [INFO] Step 6: Closing SSH connection
+[2025-09-09 02:54:24] [SUCCESS] SSH connection closed
+[2025-09-09 02:54:24] [INFO] ============================================================
+[2025-09-09 02:54:24] [INFO] VERIFICATION RESULTS:
+[2025-09-09 02:54:24] [INFO]   WAN Interface: ❌ FAILED
+[2025-09-09 02:54:24] [INFO]   Network Routes: ❌ FAILED
+[2025-09-09 02:54:24] [INFO]   Network Services: ✅ OK
+[2025-09-09 02:54:24] [INFO]   Internet Connectivity: ❌ FAILED
+[2025-09-09 02:54:24] [INFO] ============================================================
+[2025-09-09 02:54:24] [WARNING] SCRIPT NO. 2 COMPLETED WITH WARNINGS
+[2025-09-09 02:54:24] [INFO] ============================================================
+[2025-09-09 02:54:24] [INFO] Some connectivity checks failed, but device may still be functional
+[2025-09-09 02:54:24] [INFO] Proceed with caution to Script No. 3
+
+✅ Script No. 2 completed successfully!
+🚀 Ready to run Script No. 3 (Infrastructure Deployment)
+[2025-09-09 02:54:24] [SUCCESS] Script script_no2.py completed successfully
+
+============================================================
+Script script_no2.py completed with return code: 0
+Completed at: 2025-09-09 02:54:24
+============================================================
+
+[2025-09-09 02:54:24] [INFO] Script No. 2 completed (waiting 2s)
+[2025-09-09 02:54:26] [INFO] Preparing for Script No. 3 (waiting 5s)
+[2025-09-09 02:54:31] [INFO] Step 6: Running Script No. 3 (Infrastructure Deployment)
+[2025-09-09 02:54:31] [INFO] Running script_no3.py - Loranet Infrastructure Deployment Bot
+[2025-09-09 02:54:31] [INFO] Output will be logged to a019b2d27af9_20250909_025403.log
+
+============================================================
+Starting script_no3.py at 2025-09-09 02:54:31
+============================================================
+Script No. 3: Loranet Infrastructure Deployment Bot
+============================================================
+This script will:
+1. Discover devices on the network
+2. Identify authorized Bivicom devices
+3. Deploy infrastructure to discovered devices
+4. Install Bivicom Radar system
+
+[2025-09-09 02:54:31] [INFO] ============================================================
+[2025-09-09 02:54:31] [INFO] SCRIPT NO. 3: FULL INFRASTRUCTURE DEPLOYMENT
+[2025-09-09 02:54:31] [INFO] ============================================================
+[2025-09-09 02:54:31] [INFO] Loranet Deployment Bot started
+[2025-09-09 02:54:31] [INFO] Starting device discovery...
+[2025-09-09 02:54:31] [INFO] Scanning network range: 192.168.1.0/24
+[2025-09-09 02:54:32] [INFO] Found active host: 192.168.1.1
+[2025-09-09 02:54:35] [INFO] Found active host: 192.168.1.180
+[2025-09-09 02:54:38] [INFO] Network scan completed. Found 2 active hosts
+[2025-09-09 02:54:38] [INFO] Analyzing host: 192.168.1.1
+[2025-09-09 02:54:38] [INFO] MAC validation disabled - accepting device: 192.168.1.1 (MAC: a0:19:b2:d2:7a:f9)
+[2025-09-09 02:54:38] [SUCCESS] Device 192.168.1.1 is ready for deployment
+[2025-09-09 02:54:38] [INFO] Analyzing host: 192.168.1.180
+[2025-09-09 02:54:38] [INFO] MAC validation disabled - accepting device: 192.168.1.180 (MAC: 9c:eb:e8:5a:bf:63)
+[2025-09-09 02:54:38] [DEBUG] SSH connection failed to 192.168.1.180: [Errno None] Unable to connect to port 22 on 192.168.1.180
+[2025-09-09 02:54:38] [WARNING] Device 192.168.1.180 found but SSH connection failed
+[2025-09-09 02:54:38] [INFO] Discovery completed:
+[2025-09-09 02:54:38] [INFO]   - Authorized devices found: 1
+[2025-09-09 02:54:38] [INFO]   - Unauthorized devices detected: 0
+[2025-09-09 02:54:38] [INFO] Starting deployment to all devices
+[2025-09-09 02:54:38] [INFO] Starting deployment to 192.168.1.1
+[2025-09-09 02:54:38] [INFO] Creating backup for 192.168.1.1
+[2025-09-09 02:54:38] [INFO] Step 1: Configuring network settings on 192.168.1.1
+[2025-09-09 02:54:38] [INFO] Configuring network settings on 192.168.1.1
+[2025-09-09 02:54:38] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo uci commit network 2>/dev/null || echo 'Network commit failed or no changes'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci commit network 2>/dev/null || echo 'Network commit failed or no changes'
+[2025-09-09 02:54:39] [INFO] [192.168.1.1] Executing: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 02:54:39] [SUCCESS] [192.168.1.1] Command successful: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 02:54:39] [SUCCESS] Network configuration completed on 192.168.1.1
+[2025-09-09 02:54:39] [INFO] Step 2: Rebooting 192.168.1.1 to apply network configuration
+[2025-09-09 02:54:39] [INFO] Rebooting device 192.168.1.1 to apply network configuration
+[2025-09-09 02:54:42] [SUCCESS] Reboot command sent to 192.168.1.1
+[2025-09-09 02:54:42] [INFO] Step 3: Waiting for 192.168.1.1 to come back online
+[2025-09-09 02:54:42] [INFO] Waiting for 192.168.1.1 to come back online after reboot...
+[2025-09-09 02:54:42] [SUCCESS] Device 192.168.1.1 is back online
+[2025-09-09 02:54:42] [INFO] Step 4: Deploying infrastructure to 192.168.1.1
+[2025-09-09 02:55:12] [INFO] SSH connection established to 192.168.1.1, waiting 3 seconds for stability
+[2025-09-09 02:55:15] [INFO] Checking curl availability on 192.168.1.1
+[2025-09-09 02:55:15] [SUCCESS] curl is already available on 192.168.1.1
+[2025-09-09 02:55:15] [INFO] Waiting 5 seconds before starting deployment on 192.168.1.1
+[2025-09-09 02:55:20] [INFO] Executing deployment command on 192.168.1.1
+[2025-09-09 02:55:20] [INFO] Monitoring deployment on 192.168.1.1
+[2025-09-09 02:55:21] [SUCCESS] Deployment completed successfully on 192.168.1.1
+[2025-09-09 02:55:21] [INFO] Verifying curl functionality after deployment on 192.168.1.1
+[2025-09-09 02:55:21] [SUCCESS] curl verification successful on 192.168.1.1
+[2025-09-09 02:55:21] [INFO] Deployment monitoring completed for 192.168.1.1, waiting 2 seconds before cleanup
+[2025-09-09 02:55:23] [SUCCESS] Deployment to 192.168.1.1 completed successfully
+[2025-09-09 02:55:23] [INFO] Verifying deployment on 192.168.1.1
+[2025-09-09 02:55:24] [WARNING] [192.168.1.1] Node-RED is not running
+[2025-09-09 02:55:24] [WARNING] [192.168.1.1] Docker is not running
+[2025-09-09 02:55:24] [WARNING] [192.168.1.1] Tailscale is not running
+[2025-09-09 02:55:24] [INFO] Deployment completed. Success: 1, Failed: 0
+[2025-09-09 02:55:24] [INFO] Deployment report saved to deployment_report_1757357724.txt
+
+Loranet Deployment Bot Report
+============================
+Date: 2025-09-09 02:55:24
+Total Devices: 1
+Successful Deployments: 1
+Failed Deployments: 0
+
+Device Details:
+
+IP: 192.168.1.1
+MAC: a0:19:b2:d2:7a:f9
+Status: deployed
+Verified: False
+
+[2025-09-09 02:55:24] [SUCCESS] Script script_no3.py completed successfully
+
+============================================================
+Script script_no3.py completed with return code: 0
+Completed at: 2025-09-09 02:55:24
+============================================================
+
+[2025-09-09 02:55:24] [INFO] Script No. 3 completed (waiting 2s)
+[2025-09-09 02:55:26] [INFO] Preparing final success message (waiting 3s)
+[2025-09-09 02:55:29] [INFO] ================================================================================
+[2025-09-09 02:55:29] [SUCCESS] MASTER BOT COMPLETED SUCCESSFULLY!
+[2025-09-09 02:55:29] [INFO] ================================================================================
+[2025-09-09 02:55:29] [INFO] All stages completed:
+[2025-09-09 02:55:29] [INFO] - Script No. 1: Network Configuration
+[2025-09-09 02:55:29] [INFO] - Script No. 2: Connectivity Verification
+[2025-09-09 02:55:29] [INFO] - Script No. 3: Infrastructure Deployment
+[2025-09-09 02:55:29] [INFO] Check log file for detailed output: a019b2d27af9_20250909_025403.log

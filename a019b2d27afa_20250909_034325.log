@@ -1,0 +1,19 @@
+[2025-09-09 03:43:25] [INFO] ================================================================================
+[2025-09-09 03:43:25] [INFO] MASTER BOT STARTING - RUNNING FOREVER MODE
+[2025-09-09 03:43:25] [INFO] Press Ctrl+C or send SIGTERM to stop gracefully
+[2025-09-09 03:43:25] [INFO] ================================================================================
+[2025-09-09 03:43:25] [INFO] ================================================================================
+[2025-09-09 03:43:25] [INFO] MASTER BOT CYCLE #1: ORCHESTRATING SCRIPT NO. 1, 2, AND 3
+[2025-09-09 03:43:25] [INFO] ================================================================================
+[2025-09-09 03:43:25] [INFO] Step 1: Checking target IP availability
+[2025-09-09 03:43:25] [INFO] Checking if target IP 192.168.1.1 is reachable...
+[2025-09-09 03:43:27] [WARNING] Received SIGINT signal. Initiating graceful shutdown...
+[2025-09-09 03:43:27] [SUCCESS] Target IP 192.168.1.1 is reachable
+[2025-09-09 03:43:27] [INFO] IP check completed (waiting 2s)
+[2025-09-09 03:43:27] [WARNING] Shutdown requested during delay. Exiting...
+[2025-09-09 03:43:27] [WARNING] Shutdown requested. Exiting cycle.
+[2025-09-09 03:43:27] [WARNING] Shutdown requested. Exiting main loop.
+[2025-09-09 03:43:27] [INFO] ================================================================================
+[2025-09-09 03:43:27] [INFO] MASTER BOT SHUTDOWN - COMPLETED 1 CYCLES
+[2025-09-09 03:43:27] [INFO] ================================================================================
+[2025-09-09 03:43:27] [INFO] Bot stopped gracefully. Goodbye!

@@ -1,0 +1,11 @@
+[2025-09-09 04:21:00] [INFO] ================================================================================
+[2025-09-09 04:21:00] [INFO] MASTER BOT CYCLE #1: ORCHESTRATING SCRIPT NO. 1, 2, AND 3
+[2025-09-09 04:21:00] [INFO] ================================================================================
+[2025-09-09 04:21:00] [INFO] Step 1: Checking target IP availability
+[2025-09-09 04:21:00] [INFO] Checking if target IP 192.168.1.1 is reachable...
+[2025-09-09 04:21:02] [SUCCESS] Target IP 192.168.1.1 is reachable
+[2025-09-09 04:21:02] [INFO] IP check completed (waiting 2s)
+[2025-09-09 04:21:04] [INFO] Step 2: Testing SSH login
+[2025-09-09 04:21:04] [INFO] Testing SSH login to 192.168.1.1 with admin/admin...
+[2025-09-09 04:21:04] [ERROR] SSH login failed: [Errno None] Unable to connect to port 22 on 192.168.1.1
+[2025-09-09 04:21:04] [ERROR] SSH login failed. Cycle failed.

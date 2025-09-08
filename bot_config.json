@@ -1,0 +1,46 @@
+{
+  "network_range": "192.168.1.0/24",
+  "default_credentials": {
+    "username": "admin",
+    "password": "admin"
+  },
+  "target_mac_prefixes": [
+    "00:52:24",
+    "02:52:24"
+  ],
+  "authorized_ouis": {
+    "a4:7a:cf": "VIBICOM COMMUNICATIONS INC.",
+    "00:06:2c": "Bivio Networks",
+    "00:24:d9": "BICOM, Inc.",
+    "00:52:24": "Bivicom (custom/private)",
+    "02:52:24": "Bivicom (alternative)"
+  },
+  "deployment_mode": "auto",
+  "ssh_timeout": 10,
+  "scan_timeout": 5,
+  "max_threads": 50,
+  "log_level": "INFO",
+  "backup_before_deploy": true,
+  "verify_deployment": true,
+  "security_logging": true,
+  "strict_mac_validation": false,
+  "network_configuration": {
+    "enable_network_config": true,
+    "wan_interface": "eth0",
+    "lan_interface": "eth1",
+    "lan_ip": "192.168.1.1",
+    "lan_netmask": "255.255.255.0",
+    "wan_protocol": "dhcp",
+    "lan_protocol": "dhcp",
+    "reboot_timeout": 300,
+    "ssh_ready_delay": 30
+  },
+  "server_targets": {
+    "192.168.1.1": {
+      "priority": 1,
+      "description": "Main server requiring network configuration",
+      "requires_network_config": true,
+      "requires_reboot": true
+    }
+  }
+}

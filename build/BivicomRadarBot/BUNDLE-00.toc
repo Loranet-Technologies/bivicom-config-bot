@@ -1,0 +1,3 @@
+([('BivicomRadarBot',
+   '/Users/shamry/Projects/bivicom-radar-bot/dist/BivicomRadarBot',
+   'EXECUTABLE')],)

@@ -1,0 +1,347 @@
+# Master Bot Log File
+# Device IP: 192.168.1.1
+# Device MAC: a019b2d27afa
+# Created: 2025-09-09 03:20:34
+# Log File: a019b2d27afa_20250909_032026.log
+
+[2025-09-09 03:20:34] [SUCCESS] Created log file: a019b2d27afa_20250909_032026.log
+[2025-09-09 03:20:34] [INFO] Log file created (waiting 1s)
+[2025-09-09 03:20:35] [INFO] Step 4: Running Script No. 1 (Network Configuration)
+[2025-09-09 03:20:35] [INFO] Running script_no1.py - Network Configuration and Reboot
+[2025-09-09 03:20:35] [INFO] Output will be logged to a019b2d27afa_20250909_032026.log
+
+============================================================
+Starting script_no1.py at 2025-09-09 03:20:35
+============================================================
+Script No. 1: Network Configuration and Reboot
+==============================================
+This script will:
+1. Configure WAN interface for DHCP internet access
+2. Configure LAN interface for static local network
+3. Apply network configuration changes
+4. Apply WAN configuration using simple script
+5. Check WAN DHCP IP and test internet connectivity
+6. Reboot device to enable WAN internet access
+
+[2025-09-09 03:20:35] [INFO] ============================================================
+[2025-09-09 03:20:35] [INFO] SCRIPT NO. 1: NETWORK CONFIGURATION AND REBOOT
+[2025-09-09 03:20:35] [INFO] ============================================================
+[2025-09-09 03:20:35] [INFO] Target device: 192.168.1.1
+[2025-09-09 03:20:35] [INFO] Username: admin
+[2025-09-09 03:20:35] [INFO] Password: *****
+[2025-09-09 03:20:35] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 03:20:35] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 03:20:35] [INFO] Step 2: Creating backup of current configuration
+[2025-09-09 03:20:36] [SUCCESS] Backup created successfully
+[2025-09-09 03:20:36] [INFO] Step 3: Configuring network settings
+[2025-09-09 03:20:36] [INFO] Configuring network settings on 192.168.1.1
+[2025-09-09 03:20:36] [INFO] [192.168.1.1] Configuring WAN interface (eth0)...
+[2025-09-09 03:20:36] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 03:20:36] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.proto='dhcp' 2>/dev/null || echo 'WAN protocol already set'
+[2025-09-09 03:20:36] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 03:20:36] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.ifname='eth0' 2>/dev/null || echo 'WAN interface already set'
+[2025-09-09 03:20:36] [INFO] [192.168.1.1] Executing: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 03:20:36] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.wan.mtu=1500 2>/dev/null || echo 'WAN MTU already set'
+[2025-09-09 03:20:36] [INFO] [192.168.1.1] Waiting 3 seconds for WAN interface to settle...
+[2025-09-09 03:20:39] [INFO] [192.168.1.1] Configuring LAN interface (eth1)...
+[2025-09-09 03:20:39] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 03:20:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.proto='dhcp' 2>/dev/null || echo 'LAN protocol already set'
+[2025-09-09 03:20:39] [INFO] [192.168.1.1] Executing: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 03:20:39] [SUCCESS] [192.168.1.1] Command successful: sudo uci set network.lan.ifname='eth1' 2>/dev/null || echo 'LAN interface already set'
+[2025-09-09 03:20:39] [INFO] [192.168.1.1] Waiting 3 seconds for LAN interface to settle...
+[2025-09-09 03:20:42] [INFO] [192.168.1.1] Committing network configuration...
+[2025-09-09 03:20:42] [INFO] [192.168.1.1] Executing: sudo uci commit network
+[2025-09-09 03:20:42] [SUCCESS] [192.168.1.1] UCI commit successful: sudo uci commit network
+[2025-09-09 03:20:42] [INFO] [192.168.1.1] Waiting 2 seconds after commit...
+[2025-09-09 03:20:44] [INFO] [192.168.1.1] Verifying network configuration...
+[2025-09-09 03:20:44] [INFO] [192.168.1.1] Current network configuration:
+[2025-09-09 03:20:44] [INFO] [192.168.1.1]   network.lan.proto='dhcp'
+[2025-09-09 03:20:44] [INFO] [192.168.1.1]   network.lan.ifname='eth1'
+[2025-09-09 03:20:44] [INFO] [192.168.1.1]   network.wan.proto='dhcp'
+[2025-09-09 03:20:44] [INFO] [192.168.1.1]   network.wan.ifname='eth0'
+[2025-09-09 03:20:44] [INFO] [192.168.1.1] Reloading network configuration...
+[2025-09-09 03:20:44] [INFO] [192.168.1.1] Executing: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 03:20:45] [SUCCESS] [192.168.1.1] Command successful: sudo /etc/init.d/network reload 2>/dev/null || sudo /etc/init.d/network restart 2>/dev/null || echo 'Network service restart failed'
+[2025-09-09 03:20:45] [SUCCESS] Network configuration completed on 192.168.1.1
+[2025-09-09 03:20:45] [INFO] Step 4: Applying WAN configuration using simple script
+[2025-09-09 03:20:45] [INFO] Applying WAN configuration using simple script on 192.168.1.1
+[2025-09-09 03:20:45] [INFO] Running WAN config simple script on 192.168.1.1
+[2025-09-09 03:21:06] [SUCCESS] WAN config simple script executed successfully on 192.168.1.1
+[2025-09-09 03:21:06] [INFO] Testing connectivity after WAN config on 192.168.1.1
+[2025-09-09 03:21:08] [INFO] Connectivity test results on 192.168.1.1:
+[2025-09-09 03:21:08] [INFO]   [0;34m==========================================[0m
+[2025-09-09 03:21:08] [INFO]   [0;34mConnectivity Test[0m
+[2025-09-09 03:21:08] [INFO]   [0;34m==========================================[0m
+[2025-09-09 03:21:08] [INFO]   [0;34m[INFO][0m Testing DNS resolution...
+[2025-09-09 03:21:08] [INFO]   [1;33m[WARNING][0m DNS: FAILED
+[2025-09-09 03:21:08] [INFO]   [0;34m[INFO][0m Testing ping to 8.8.8.8...
+[2025-09-09 03:21:08] [INFO]   [0;32m[SUCCESS][0m Ping: OK
+[2025-09-09 03:21:08] [INFO]   [0;34m[INFO][0m Testing HTTP connectivity...
+[2025-09-09 03:21:08] [INFO]   [0;32m[SUCCESS][0m HTTP: OK
+[2025-09-09 03:21:08] [INFO]   [0;34m[INFO][0m Current WAN IP:
+[2025-09-09 03:21:08] [INFO]   121.121.187.112
+[2025-09-09 03:21:08] [SUCCESS] WAN config simple script completed
+[2025-09-09 03:21:08] [INFO] Step 5: Checking WAN DHCP IP and internet connectivity
+[2025-09-09 03:21:08] [INFO] Checking WAN DHCP IP and internet connectivity on 192.168.1.1
+[2025-09-09 03:21:08] [INFO] Waiting 10 seconds for DHCP to get IP address...
+[2025-09-09 03:21:18] [INFO] Checking WAN interface (eth0) IP address...
+[2025-09-09 03:21:18] [WARNING] WAN interface (eth0) has no IP address
+[2025-09-09 03:21:18] [WARNING] DHCP may need more time or there might be a network issue
+[2025-09-09 03:21:18] [WARNING] WAN DHCP check failed - no IP address received
+[2025-09-09 03:21:18] [INFO] Proceeding with reboot anyway - IP might be assigned after reboot
+[2025-09-09 03:21:18] [INFO] Step 6: Rebooting device to apply network configuration
+[2025-09-09 03:21:18] [INFO] Rebooting device 192.168.1.1 to apply network configuration
+[2025-09-09 03:21:21] [SUCCESS] Reboot command sent to 192.168.1.1
+[2025-09-09 03:21:21] [INFO] Step 7: Waiting for device to come back online
+[2025-09-09 03:21:21] [INFO] Waiting for 192.168.1.1 to come back online after reboot...
+[2025-09-09 03:21:21] [SUCCESS] Device 192.168.1.1 is back online
+[2025-09-09 03:21:21] [INFO] ============================================================
+[2025-09-09 03:21:21] [SUCCESS] SCRIPT NO. 1 COMPLETED SUCCESSFULLY!
+[2025-09-09 03:21:21] [INFO] ============================================================
+[2025-09-09 03:21:21] [INFO] Network configuration applied and device rebooted
+[2025-09-09 03:21:21] [INFO] WAN internet access should now be enabled
+[2025-09-09 03:21:21] [INFO] Device is ready for Script No. 2 (Infrastructure Deployment)
+
+✅ Script No. 1 completed successfully!
+🚀 Ready to run Script No. 2 (Infrastructure Deployment)
+[2025-09-09 03:21:21] [SUCCESS] Script script_no1.py completed successfully
+
+============================================================
+Script script_no1.py completed with return code: 0
+Completed at: 2025-09-09 03:21:21
+============================================================
+
+[2025-09-09 03:21:21] [INFO] Script No. 1 completed (waiting 2s)
+[2025-09-09 03:21:23] [INFO] Preparing for Script No. 2 (waiting 5s)
+[2025-09-09 03:21:28] [INFO] Step 5: Running Script No. 2 (Connectivity Verification)
+[2025-09-09 03:21:28] [INFO] Running script_no2.py - WAN Internet Connectivity Verification
+[2025-09-09 03:21:28] [INFO] Output will be logged to a019b2d27afa_20250909_032026.log
+
+============================================================
+Starting script_no2.py at 2025-09-09 03:21:28
+============================================================
+Script No. 2: WAN Internet Connection Verification
+==================================================
+This script will:
+1. SSH login to the device
+2. Check WAN interface status
+3. Verify network routes
+4. Check network services
+5. Test internet connectivity
+6. Logout and prepare for Script No. 3
+
+[2025-09-09 03:21:28] [INFO] ============================================================
+[2025-09-09 03:21:28] [INFO] SCRIPT NO. 2: WAN INTERNET CONNECTION VERIFICATION
+[2025-09-09 03:21:28] [INFO] ============================================================
+[2025-09-09 03:21:28] [INFO] Target device: 192.168.1.1
+[2025-09-09 03:21:28] [INFO] Username: admin
+[2025-09-09 03:21:28] [INFO] Password: *****
+[2025-09-09 03:21:28] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 03:21:28] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 03:21:28] [INFO] Step 2: Checking WAN interface status
+[2025-09-09 03:21:28] [INFO] Checking WAN interface status on 192.168.1.1
+[2025-09-09 03:21:28] [WARNING] WAN interface (eth0) has no IP address
+[2025-09-09 03:21:28] [INFO] Step 3: Checking network routes
+[2025-09-09 03:21:28] [INFO] Checking network routes on 192.168.1.1
+[2025-09-09 03:21:28] [SUCCESS] Default routes found:
+[2025-09-09 03:21:28] [SUCCESS]   default via 192.168.6.254 dev eth1 proto dhcp src 192.168.6.239 metric 100
+[2025-09-09 03:21:28] [INFO] Step 4: Checking network services
+[2025-09-09 03:21:28] [INFO] Checking network services on 192.168.1.1
+[2025-09-09 03:21:28] [SUCCESS] Network: Network interfaces OK
+[2025-09-09 03:21:29] [SUCCESS] DHCP Client: DHCP client not running
+[2025-09-09 03:21:29] [INFO] Step 5: Checking internet connectivity
+[2025-09-09 03:21:29] [INFO] Checking internet connectivity from 192.168.1.1
+[2025-09-09 03:21:29] [INFO] Running DNS Resolution test...
+[2025-09-09 03:21:29] [WARNING] DNS Resolution: DNS FAILED
+[2025-09-09 03:21:29] [INFO] Running Ping Google DNS test...
+[2025-09-09 03:21:31] [SUCCESS] Ping Google DNS: PING OK
+[2025-09-09 03:21:31] [INFO] Running Ping Google test...
+[2025-09-09 03:21:33] [SUCCESS] Ping Google: PING OK
+[2025-09-09 03:21:33] [INFO] Running HTTP Test test...
+[2025-09-09 03:21:33] [SUCCESS] HTTP Test: HTTP OK
+[2025-09-09 03:21:33] [INFO] Step 6: Closing SSH connection
+[2025-09-09 03:21:33] [SUCCESS] SSH connection closed
+[2025-09-09 03:21:33] [INFO] ============================================================
+[2025-09-09 03:21:33] [INFO] VERIFICATION RESULTS:
+[2025-09-09 03:21:33] [INFO]   WAN Interface: ❌ FAILED
+[2025-09-09 03:21:33] [INFO]   Network Routes: ✅ OK
+[2025-09-09 03:21:33] [INFO]   Network Services: ✅ OK
+[2025-09-09 03:21:33] [INFO]   Internet Connectivity: ❌ FAILED
+[2025-09-09 03:21:33] [INFO] ============================================================
+[2025-09-09 03:21:33] [WARNING] SCRIPT NO. 2 COMPLETED WITH WARNINGS
+[2025-09-09 03:21:33] [INFO] ============================================================
+[2025-09-09 03:21:33] [INFO] Some connectivity checks failed, but device may still be functional
+[2025-09-09 03:21:33] [INFO] Proceed with caution to Script No. 3
+
+✅ Script No. 2 completed successfully!
+🚀 Ready to run Script No. 3 (Infrastructure Deployment)
+[2025-09-09 03:21:33] [SUCCESS] Script script_no2.py completed successfully
+
+============================================================
+Script script_no2.py completed with return code: 0
+Completed at: 2025-09-09 03:21:33
+============================================================
+
+[2025-09-09 03:21:33] [INFO] Checking internet connectivity after Script No. 2
+[2025-09-09 03:21:33] [WARNING] No internet connectivity detected. Retry 1/3
+[2025-09-09 03:21:33] [INFO] Reloading network configuration before retry...
+[2025-09-09 03:21:33] [INFO] Reloading network configuration on target device
+[2025-09-09 03:21:33] [INFO] Executing: sudo /etc/init.d/network reload
+[2025-09-09 03:21:34] [SUCCESS] Command successful: sudo /etc/init.d/network reload
+[2025-09-09 03:21:34] [INFO] Executing: sudo /etc/init.d/network restart
+[2025-09-09 03:21:34] [SUCCESS] Command successful: sudo /etc/init.d/network restart
+[2025-09-09 03:21:34] [SUCCESS] Network configuration reload completed
+[2025-09-09 03:21:34] [INFO] Network configuration reloaded. Waiting 10 seconds before retry...
+[2025-09-09 03:21:44] [INFO] Script No. 2 completed (waiting 2s)
+[2025-09-09 03:21:46] [INFO] Retry attempt 1 for Script No. 2
+[2025-09-09 03:21:46] [INFO] Running script_no2.py - WAN Internet Connectivity Verification
+[2025-09-09 03:21:46] [INFO] Output will be logged to a019b2d27afa_20250909_032026.log
+
+============================================================
+Starting script_no2.py at 2025-09-09 03:21:46
+============================================================
+Script No. 2: WAN Internet Connection Verification
+==================================================
+This script will:
+1. SSH login to the device
+2. Check WAN interface status
+3. Verify network routes
+4. Check network services
+5. Test internet connectivity
+6. Logout and prepare for Script No. 3
+
+[2025-09-09 03:21:46] [INFO] ============================================================
+[2025-09-09 03:21:46] [INFO] SCRIPT NO. 2: WAN INTERNET CONNECTION VERIFICATION
+[2025-09-09 03:21:46] [INFO] ============================================================
+[2025-09-09 03:21:46] [INFO] Target device: 192.168.1.1
+[2025-09-09 03:21:46] [INFO] Username: admin
+[2025-09-09 03:21:46] [INFO] Password: *****
+[2025-09-09 03:21:46] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 03:21:47] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 03:21:47] [INFO] Step 2: Checking WAN interface status
+[2025-09-09 03:21:47] [INFO] Checking WAN interface status on 192.168.1.1
+[2025-09-09 03:21:47] [WARNING] WAN interface (eth0) has no IP address
+[2025-09-09 03:21:47] [INFO] Step 3: Checking network routes
+[2025-09-09 03:21:47] [INFO] Checking network routes on 192.168.1.1
+[2025-09-09 03:21:47] [SUCCESS] Default routes found:
+[2025-09-09 03:21:47] [SUCCESS]   default via 192.168.6.254 dev eth1 proto dhcp src 192.168.6.239 metric 100
+[2025-09-09 03:21:47] [INFO] Step 4: Checking network services
+[2025-09-09 03:21:47] [INFO] Checking network services on 192.168.1.1
+[2025-09-09 03:21:47] [SUCCESS] Network: Network interfaces OK
+[2025-09-09 03:21:47] [SUCCESS] DHCP Client: DHCP client not running
+[2025-09-09 03:21:47] [INFO] Step 5: Checking internet connectivity
+[2025-09-09 03:21:47] [INFO] Checking internet connectivity from 192.168.1.1
+[2025-09-09 03:21:47] [INFO] Running DNS Resolution test...
+[2025-09-09 03:21:47] [WARNING] DNS Resolution: DNS FAILED
+[2025-09-09 03:21:47] [INFO] Running Ping Google DNS test...
+[2025-09-09 03:21:49] [SUCCESS] Ping Google DNS: PING OK
+[2025-09-09 03:21:49] [INFO] Running Ping Google test...
+[2025-09-09 03:21:51] [SUCCESS] Ping Google: PING OK
+[2025-09-09 03:21:51] [INFO] Running HTTP Test test...
+[2025-09-09 03:21:51] [SUCCESS] HTTP Test: HTTP OK
+[2025-09-09 03:21:51] [INFO] Step 6: Closing SSH connection
+[2025-09-09 03:21:51] [SUCCESS] SSH connection closed
+[2025-09-09 03:21:51] [INFO] ============================================================
+[2025-09-09 03:21:51] [INFO] VERIFICATION RESULTS:
+[2025-09-09 03:21:51] [INFO]   WAN Interface: ❌ FAILED
+[2025-09-09 03:21:51] [INFO]   Network Routes: ✅ OK
+[2025-09-09 03:21:51] [INFO]   Network Services: ✅ OK
+[2025-09-09 03:21:51] [INFO]   Internet Connectivity: ❌ FAILED
+[2025-09-09 03:21:51] [INFO] ============================================================
+[2025-09-09 03:21:51] [WARNING] SCRIPT NO. 2 COMPLETED WITH WARNINGS
+[2025-09-09 03:21:51] [INFO] ============================================================
+[2025-09-09 03:21:51] [INFO] Some connectivity checks failed, but device may still be functional
+[2025-09-09 03:21:51] [INFO] Proceed with caution to Script No. 3
+
+✅ Script No. 2 completed successfully!
+🚀 Ready to run Script No. 3 (Infrastructure Deployment)
+[2025-09-09 03:21:51] [SUCCESS] Script script_no2.py completed successfully
+
+============================================================
+Script script_no2.py completed with return code: 0
+Completed at: 2025-09-09 03:21:51
+============================================================
+
+[2025-09-09 03:21:51] [INFO] Checking internet connectivity after Script No. 2
+[2025-09-09 03:21:51] [WARNING] No internet connectivity detected. Retry 2/3
+[2025-09-09 03:21:51] [INFO] Reloading network configuration before retry...
+[2025-09-09 03:21:51] [INFO] Reloading network configuration on target device
+[2025-09-09 03:21:52] [INFO] Executing: sudo /etc/init.d/network reload
+[2025-09-09 03:21:52] [SUCCESS] Command successful: sudo /etc/init.d/network reload
+[2025-09-09 03:21:52] [INFO] Executing: sudo /etc/init.d/network restart
+[2025-09-09 03:21:52] [SUCCESS] Command successful: sudo /etc/init.d/network restart
+[2025-09-09 03:21:52] [SUCCESS] Network configuration reload completed
+[2025-09-09 03:21:52] [INFO] Network configuration reloaded. Waiting 10 seconds before retry...
+[2025-09-09 03:22:02] [INFO] Script No. 2 completed (waiting 2s)
+[2025-09-09 03:22:04] [INFO] Retry attempt 2 for Script No. 2
+[2025-09-09 03:22:04] [INFO] Running script_no2.py - WAN Internet Connectivity Verification
+[2025-09-09 03:22:04] [INFO] Output will be logged to a019b2d27afa_20250909_032026.log
+
+============================================================
+Starting script_no2.py at 2025-09-09 03:22:04
+============================================================
+Script No. 2: WAN Internet Connection Verification
+==================================================
+This script will:
+1. SSH login to the device
+2. Check WAN interface status
+3. Verify network routes
+4. Check network services
+5. Test internet connectivity
+6. Logout and prepare for Script No. 3
+
+[2025-09-09 03:22:04] [INFO] ============================================================
+[2025-09-09 03:22:04] [INFO] SCRIPT NO. 2: WAN INTERNET CONNECTION VERIFICATION
+[2025-09-09 03:22:04] [INFO] ============================================================
+[2025-09-09 03:22:04] [INFO] Target device: 192.168.1.1
+[2025-09-09 03:22:04] [INFO] Username: admin
+[2025-09-09 03:22:04] [INFO] Password: *****
+[2025-09-09 03:22:04] [INFO] Step 1: Connecting to 192.168.1.1 via SSH
+[2025-09-09 03:22:05] [SUCCESS] SSH connection established to 192.168.1.1
+[2025-09-09 03:22:05] [INFO] Step 2: Checking WAN interface status
+[2025-09-09 03:22:05] [INFO] Checking WAN interface status on 192.168.1.1
+[2025-09-09 03:22:05] [WARNING] WAN interface (eth0) has no IP address
+[2025-09-09 03:22:05] [INFO] Step 3: Checking network routes
+[2025-09-09 03:22:05] [INFO] Checking network routes on 192.168.1.1
+[2025-09-09 03:22:05] [SUCCESS] Default routes found:
+[2025-09-09 03:22:05] [SUCCESS]   default via 192.168.6.254 dev eth1 proto dhcp src 192.168.6.239 metric 100
+[2025-09-09 03:22:05] [INFO] Step 4: Checking network services
+[2025-09-09 03:22:05] [INFO] Checking network services on 192.168.1.1
+[2025-09-09 03:22:05] [SUCCESS] Network: Network interfaces OK
+[2025-09-09 03:22:05] [SUCCESS] DHCP Client: DHCP client not running
+[2025-09-09 03:22:05] [INFO] Step 5: Checking internet connectivity
+[2025-09-09 03:22:05] [INFO] Checking internet connectivity from 192.168.1.1
+[2025-09-09 03:22:05] [INFO] Running DNS Resolution test...
+[2025-09-09 03:22:05] [WARNING] DNS Resolution: DNS FAILED
+[2025-09-09 03:22:05] [INFO] Running Ping Google DNS test...
+[2025-09-09 03:22:07] [SUCCESS] Ping Google DNS: PING OK
+[2025-09-09 03:22:07] [INFO] Running Ping Google test...
+[2025-09-09 03:22:10] [SUCCESS] Ping Google: PING OK
+[2025-09-09 03:22:10] [INFO] Running HTTP Test test...
+[2025-09-09 03:22:10] [SUCCESS] HTTP Test: HTTP OK
+[2025-09-09 03:22:10] [INFO] Step 6: Closing SSH connection
+[2025-09-09 03:22:10] [SUCCESS] SSH connection closed
+[2025-09-09 03:22:10] [INFO] ============================================================
+[2025-09-09 03:22:10] [INFO] VERIFICATION RESULTS:
+[2025-09-09 03:22:10] [INFO]   WAN Interface: ❌ FAILED
+[2025-09-09 03:22:10] [INFO]   Network Routes: ✅ OK
+[2025-09-09 03:22:10] [INFO]   Network Services: ✅ OK
+[2025-09-09 03:22:10] [INFO]   Internet Connectivity: ❌ FAILED
+[2025-09-09 03:22:10] [INFO] ============================================================
+[2025-09-09 03:22:10] [WARNING] SCRIPT NO. 2 COMPLETED WITH WARNINGS
+[2025-09-09 03:22:10] [INFO] ============================================================
+[2025-09-09 03:22:10] [INFO] Some connectivity checks failed, but device may still be functional
+[2025-09-09 03:22:10] [INFO] Proceed with caution to Script No. 3
+
+✅ Script No. 2 completed successfully!
+🚀 Ready to run Script No. 3 (Infrastructure Deployment)
+[2025-09-09 03:22:10] [SUCCESS] Script script_no2.py completed successfully
+
+============================================================
+Script script_no2.py completed with return code: 0
+Completed at: 2025-09-09 03:22:10
+============================================================
+
+[2025-09-09 03:22:10] [INFO] Checking internet connectivity after Script No. 2
+[2025-09-09 03:22:10] [ERROR] Maximum retries reached for Script No. 2. Internet connectivity not available.
+[2025-09-09 03:22:10] [ERROR] Cannot proceed to Script No. 3 without internet connectivity.

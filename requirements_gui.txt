@@ -1,0 +1,20 @@
+# Bivicom Radar Bot GUI Requirements
+# =================================
+
+# Core dependencies
+paramiko>=2.7.0
+ipaddress>=1.0.23
+
+# GUI dependencies (tkinter is included with Python)
+# No additional GUI dependencies needed for tkinter
+
+# Build dependencies
+pyinstaller>=5.0.0
+
+# Optional notification dependencies
+plyer>=2.0.0  # For cross-platform notifications
+
+# Development dependencies (optional)
+# pytest>=6.0.0
+# black>=22.0.0
+# flake8>=4.0.0

@@ -1,0 +1,86 @@
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Build directories
+build/
+dist/
+*.egg-info/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+deployment_report_*.txt
+
+# Large binary files
+*.zip
+*.app/
+Bot.app/
+Launch*.app/
+Launch*.command
+
+# Build artifacts and temporary files
+*.spec
+*.pkg
+*.pyz
+*.toc
+warn-*.txt
+xref-*.html
+Analysis-*.toc
+BUNDLE-*.toc
+EXE-*.toc
+PKG-*.toc
+PYZ-*.toc
+base_library.zip
+localpycs/
+
+# Distribution packages
+distribution_package/
+BivicomRadarBot_Distribution.zip
+
+# Configuration files that might contain sensitive data
+config.json
+secrets.json
+.env.local
+.env.production
+
+# Test files and temporary scripts
+test_*.py
+simple_*.py
+temp_*.py
+debug_*.py
+
+# Documentation build files
+docs/_build/
+site/
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/

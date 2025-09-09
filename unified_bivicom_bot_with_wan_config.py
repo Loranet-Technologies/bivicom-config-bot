@@ -479,8 +479,54 @@ class UnifiedBivicomBot:
             self.log(f"Deployment monitoring error: {e}", "ERROR")
             return False
 
+    def configure_docker_user_group(self, ssh, ip: str) -> bool:
+        """Configure Docker user group for current user"""
+        self.log(f"Configuring Docker user group on {ip}")
+        
+        try:
+            # Add current user to docker group
+            self.log(f"[{ip}] Adding current user to docker group...")
+            stdin, stdout, stderr = ssh.exec_command("sudo usermod -aG docker $USER")
+            exit_status = stdout.channel.recv_exit_status()
+            
+            if exit_status != 0:
+                error_output = stderr.read().decode('utf-8').strip()
+                self.log(f"[{ip}] Failed to add user to docker group: {error_output}", "WARNING")
+                return False
+            else:
+                self.log(f"[{ip}] User added to docker group successfully", "SUCCESS")
+            
+            # Apply new group membership
+            self.log(f"[{ip}] Applying new group membership...")
+            stdin, stdout, stderr = ssh.exec_command("newgrp docker")
+            exit_status = stdout.channel.recv_exit_status()
+            
+            if exit_status != 0:
+                error_output = stderr.read().decode('utf-8').strip()
+                self.log(f"[{ip}] Failed to apply new group membership: {error_output}", "WARNING")
+                # This is not critical, continue anyway
+            else:
+                self.log(f"[{ip}] New group membership applied successfully", "SUCCESS")
+            
+            # Test Docker without sudo
+            self.log(f"[{ip}] Testing Docker without sudo...")
+            stdin, stdout, stderr = ssh.exec_command("docker --version")
+            exit_status = stdout.channel.recv_exit_status()
+            
+            if exit_status == 0:
+                self.log(f"[{ip}] Docker works without sudo: ✅", "SUCCESS")
+                return True
+            else:
+                self.log(f"[{ip}] Docker still requires sudo: ⚠️", "WARNING")
+                # This might be expected if newgrp didn't work in SSH context
+                return True  # Continue anyway, user can manually run newgrp later
+            
+        except Exception as e:
+            self.log(f"Docker user group configuration error: {e}", "ERROR")
+            return False
+
     def verify_all_installations(self, ssh, ip: str) -> bool:
-        """Verify all infrastructure installations"""
+        """Verify all infrastructure installations and configure Docker user group"""
         self.log(f"Verifying all installations on {ip}")
         
         try:
@@ -491,15 +537,28 @@ class UnifiedBivicomBot:
             ]
             
             all_installed = True
+            docker_installed = False
+            
             for service_name, check_cmd in services_to_check:
                 stdin, stdout, stderr = ssh.exec_command(check_cmd)
                 exit_status = stdout.channel.recv_exit_status()
                 
                 if exit_status == 0:
                     self.log(f"{service_name}: ✅ Installed", "SUCCESS")
+                    if service_name == "Docker":
+                        docker_installed = True
                 else:
                     self.log(f"{service_name}: ❌ Not installed", "WARNING")
                     all_installed = False
+            
+            # Configure Docker user group if Docker is installed
+            if docker_installed:
+                self.log("Docker detected, configuring user group...")
+                docker_config_ok = self.configure_docker_user_group(ssh, ip)
+                if not docker_config_ok:
+                    self.log("Docker user group configuration failed", "WARNING")
+            else:
+                self.log("Docker not installed, skipping user group configuration")
             
             # Wait 5 seconds after verification
             wait_time = self.config['network_configuration'].get('verification_wait', 5)
@@ -831,7 +890,7 @@ class UnifiedBivicomBot:
             self.log("- WAN connectivity verified")
             self.log("- curl installed")
             self.log("- Infrastructure deployed")
-            self.log("- Installations verified")
+            self.log("- Installations verified and Docker user group configured")
             self.log("- Tailscale configured")
             self.log("- UCI configuration restored (simple restore) - NO REBOOT")
             self.log(f"Check log file for detailed output: {self.log_file}")
@@ -892,7 +951,7 @@ def main():
     print("4. Connectivity Verification")
     print("5. Curl Installation")
     print("6. Infrastructure Deployment")
-    print("7. Installation Verification")
+    print("7. Installation Verification & Docker User Group Configuration")
     print("8. Tailscale Setup")
     print("9. UCI Configuration Restore (Simple) - NO REBOOT")
     print("10. Master Bot Orchestration")

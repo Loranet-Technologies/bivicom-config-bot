@@ -140,104 +140,70 @@ pyinstaller --onefile --windowed --name="Bivicom Configurator V1" gui.py
 ### Primary Config: `.env`
 
 **Key Configuration Variables:**
-- `NETWORK_RANGE`: Target subnet for device scanning (default: "192.168.1.0/24")
 - `DEFAULT_USERNAME` / `DEFAULT_PASSWORD`: SSH authentication credentials
-- `TARGET_MAC_PREFIXES`: Bivicom device MAC identification patterns (comma-separated)
-- `WAN_INTERFACE` / `LAN_INTERFACE`: Network interface configuration
+- `SSH_TIMEOUT`: SSH connection timeout in seconds
 - `TAILSCALE_AUTH_KEY`: Tailscale authentication key
-- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+- `CONFIG_WAIT_TIME`: Network configuration wait time
+- `CURL_INSTALL_WAIT`: Curl installation wait time
+- `VERIFICATION_WAIT`: Verification wait time
+- `TAILSCALE_AUTH_WAIT`: Tailscale setup wait time
+- `IP_CHECK_DELAY`: IP availability check delay
+- `SSH_TEST_DELAY`: SSH test delay
+- `CYCLE_RESTART_DELAY`: Delay between bot cycles
 
 **Environment File Format:**
 ```bash
-# Network Configuration
-NETWORK_RANGE=192.168.1.0/24
+# SSH Authentication
 DEFAULT_USERNAME=admin
 DEFAULT_PASSWORD=admin
+SSH_TIMEOUT=10
 
-# Network Interfaces
-WAN_INTERFACE=enx0250f4000000
-LAN_INTERFACE=eth0
-LAN_IP=192.168.1.1
+# Network Configuration Timing
+CONFIG_WAIT_TIME=5
+CURL_INSTALL_WAIT=5
+VERIFICATION_WAIT=5
+TAILSCALE_AUTH_WAIT=5
+
+# Delay Settings
+IP_CHECK_DELAY=2
+SSH_TEST_DELAY=3
+CYCLE_RESTART_DELAY=30
 
 # Tailscale
 TAILSCALE_AUTH_KEY=YOUR_TAILSCALE_AUTH_KEY_HERE
 ```
 
-**Complete Configuration Example:**
-```json
-{
-  "network_range": "192.168.1.0/24",
-  "default_credentials": {
-    "username": "admin",
-    "password": "admin"
-  },
-  "target_mac_prefixes": [
-    "00:52:24",
-    "02:52:24"
-  ],
-  "authorized_ouis": {
-    "a4:7a:cf": "VIBICOM COMMUNICATIONS INC.",
-    "00:06:2c": "Bivio Networks",
-    "00:24:d9": "BICOM, Inc.",
-    "00:52:24": "Bivicom (custom/private)",
-    "02:52:24": "Bivicom (alternative)"
-  },
-  "deployment_mode": "auto",
-  "ssh_timeout": 10,
-  "scan_timeout": 5,
-  "max_threads": 50,
-  "log_level": "INFO",
-  "backup_before_deploy": true,
-  "verify_deployment": true,
-  "security_logging": true,
-  "strict_mac_validation": false,
-  "network_configuration": {
-    "enable_network_config": true,
-    "wan_interface": "enx0250f4000000",
-    "lan_interface": "eth0",
-    "lan_ip": "192.168.1.1",
-    "lan_netmask": "255.255.255.0",
-    "wan_protocol": "lte",
-    "lan_protocol": "static",
-    "ssh_ready_delay": 30,
-    "config_wait_time": 5,
-    "service_restart_wait": 5,
-    "curl_install_wait": 5,
-    "verification_wait": 5,
-    "tailscale_auth_wait": 5
-  },
-  "tailscale": {
-    "auth_key": "YOUR_TAILSCALE_AUTH_KEY_HERE",
-    "enable_setup": true
-  },
-  "backup_configuration": {
-    "backup_location": "/home/$USER",
-    "backup_before_deploy": true,
-    "restore_after_deploy": true
-  },
-  "delays": {
-    "ip_check": 2,
-    "ssh_test": 3,
-    "log_creation": 1,
-    "between_scripts": 5,
-    "script_completion": 2,
-    "final_success": 3,
-    "cycle_restart": 30
-  }
-}
+**All Available Parameters:**
+```bash
+# SSH Authentication
+DEFAULT_USERNAME=admin
+DEFAULT_PASSWORD=admin
+SSH_TIMEOUT=10
+
+# Network Configuration Timing
+CONFIG_WAIT_TIME=5
+CURL_INSTALL_WAIT=5
+VERIFICATION_WAIT=5
+TAILSCALE_AUTH_WAIT=5
+
+# Delay Settings
+IP_CHECK_DELAY=2
+SSH_TEST_DELAY=3
+LOG_CREATION_DELAY=1
+BETWEEN_SCRIPTS_DELAY=5
+SCRIPT_COMPLETION_DELAY=2
+FINAL_SUCCESS_DELAY=3
+CYCLE_RESTART_DELAY=30
+
+# Tailscale Configuration
+TAILSCALE_AUTH_KEY=YOUR_TAILSCALE_AUTH_KEY_HERE
 ```
 
 **Critical Parameters:**
-```json
-{
-  "network_configuration": {
-    "wan_interface": "enx0250f4000000", // USB LTE WAN
-    "lan_interface": "eth0", 
-    "wan_protocol": "lte",
-    "lan_protocol": "static"
-  }
-}
-```
+- `DEFAULT_USERNAME` / `DEFAULT_PASSWORD`: Required for SSH access
+- `TAILSCALE_AUTH_KEY`: Required for Tailscale setup
+- `SSH_TIMEOUT`: Controls connection timeout
+- `CYCLE_RESTART_DELAY`: Controls how often the bot retries
 
 ## Usage
 

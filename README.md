@@ -2,8 +2,108 @@
 
 A comprehensive network automation toolkit for configuring and deploying infrastructure on Bivicom devices. This unified solution combines device discovery, SSH automation, UCI network configuration, and infrastructure deployment into a streamlined workflow.
 
+## 🚀 Introduction & Process Flow
+
+The Bivicom Configurator V1 automates the complete setup process for Bivicom devices with LTE WAN connectivity. Here's how it works:
+
+### 📊 **Process Flow Overview**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    BIVICOM CONFIGURATOR V1                     │
+│                      Process Flow (1-10)                       │
+└─────────────────────────────────────────────────────────────────┘
+
+1️⃣  NETWORK DISCOVERY & CONNECTION
+    ├── Target IP: 192.168.1.1 (hardcoded)
+    ├── SSH Authentication: admin/admin (configurable)
+    └── Connection Timeout: 10s (configurable)
+
+2️⃣  UCI BACKUP CREATION
+    ├── Backup Location: /home/$USER (configurable)
+    ├── Backup Name: uci_backup_YYYYMMDD_HHMMSS
+    └── Backup Contents: Complete UCI configuration
+
+3️⃣  NETWORK CONFIGURATION (LTE WAN)
+    ├── WAN Interface: enx0250f4000000 (USB LTE device)
+    ├── WAN Protocol: LTE (hardcoded)
+    ├── LAN Interface: eth0 (hardcoded)
+    ├── LAN IP: 192.168.1.1 (hardcoded)
+    ├── LAN Protocol: Static (hardcoded)
+    └── No Reboot Required (configuration applied live)
+
+4️⃣  CONNECTIVITY VERIFICATION
+    ├── WAN Route Check
+    ├── Internet Connectivity Test
+    └── Network Service Status
+
+5️⃣  CURL INSTALLATION
+    ├── Check if curl is installed
+    ├── Install curl if missing
+    └── Verify installation
+
+6️⃣  INFRASTRUCTURE DEPLOYMENT
+    ├── Docker Installation
+    ├── Docker User Group Configuration
+    ├── System Package Updates
+    └── Service Configuration
+
+7️⃣  INSTALLATION VERIFICATION
+    ├── Docker Status Check
+    ├── User Group Verification
+    ├── Service Health Check
+    └── System Status Validation
+
+8️⃣  TAILSCALE SETUP
+    ├── Tailscale Installation Check
+    ├── Authentication Key Application
+    ├── Network Join Process
+    └── Connection Verification
+
+9️⃣  UCI CONFIGURATION RESTORE
+    ├── Restore from Backup (if needed)
+    ├── Configuration Validation
+    └── Service Restart (if required)
+
+🔟  MASTER BOT ORCHESTRATION
+    ├── Complete Cycle Validation
+    ├── Success/Failure Reporting
+    ├── Log Generation
+    └── Next Cycle Preparation (if in forever mode)
+```
+
+### ⚙️ **Operation Modes**
+
+#### **Single Cycle Mode**
+- Runs steps 1-10 once
+- Stops after completion
+- Shows success/failure status
+
+#### **Forever Mode**
+- Continuously runs steps 1-10
+- Retries on failure
+- Runs until manually stopped
+- Shows "stopped by user" when interrupted
+
+### 🎯 **Key Benefits**
+
+- **🔄 Automated**: Complete hands-off device setup
+- **⚡ Fast**: No reboots required during configuration
+- **🛡️ Safe**: Creates backups before making changes
+- **📊 Monitored**: Real-time logging and status updates
+- **🔧 Configurable**: All timing and credentials configurable via .env
+- **🖥️ GUI**: User-friendly interface with progress tracking
+
+### 📋 **Prerequisites**
+
+- Bivicom device with default IP: 192.168.1.1
+- SSH access with admin/admin credentials
+- USB LTE device connected (enx0250f4000000)
+- Network connectivity for package installation
+
 ## 📋 Table of Contents
 
+- [Introduction & Process Flow](#-introduction--process-flow)
 - [Overview](#overview)
 - [Quick Start](#quick-start)
 - [Key Features](#key-features)

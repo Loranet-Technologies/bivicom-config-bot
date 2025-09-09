@@ -35,7 +35,7 @@ import contextlib
 class GUIBotWrapper(UnifiedBivicomBot):
     """Wrapper for UnifiedBivicomBot that integrates with GUI logging"""
     
-    def __init__(self, gui_log_callback, config_file: str = "config.json"):
+    def __init__(self, gui_log_callback, config_file: str = ".env"):
         super().__init__(config_file)
         self.gui_log_callback = gui_log_callback
     

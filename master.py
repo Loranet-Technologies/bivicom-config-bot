@@ -25,9 +25,10 @@ from typing import Dict, List, Optional, Tuple
 import ipaddress
 import re
 from datetime import datetime
+from dotenv import load_dotenv
 
 class UnifiedBivicomBot:
-    def __init__(self, config_file: str = "config.json"):
+    def __init__(self, config_file: str = ".env"):
         self.config = self.load_config(config_file)
         self.ssh_client = None
         self.discovered_devices = []
@@ -104,16 +105,133 @@ class UnifiedBivicomBot:
         self.shutdown_requested = True
 
     def load_config(self, config_file: str) -> Dict:
-        """Load configuration from JSON file"""
+        """Load configuration from .env file"""
         try:
-            with open(config_file, 'r') as f:
-                return json.load(f)
+            # Load .env file
+            load_dotenv(config_file)
+            
+            # Convert environment variables to config dictionary
+            config = {
+                "network_range": os.getenv("NETWORK_RANGE", "192.168.1.0/24"),
+                "default_credentials": {
+                    "username": os.getenv("DEFAULT_USERNAME", "admin"),
+                    "password": os.getenv("DEFAULT_PASSWORD", "admin")
+                },
+                "target_mac_prefixes": os.getenv("TARGET_MAC_PREFIXES", "00:52:24,02:52:24").split(","),
+                "authorized_ouis": self._parse_ouis(os.getenv("AUTHORIZED_OUIS", "")),
+                "deployment_mode": os.getenv("DEPLOYMENT_MODE", "auto"),
+                "ssh_timeout": int(os.getenv("SSH_TIMEOUT", "10")),
+                "scan_timeout": int(os.getenv("SCAN_TIMEOUT", "5")),
+                "max_threads": int(os.getenv("MAX_THREADS", "50")),
+                "log_level": os.getenv("LOG_LEVEL", "INFO"),
+                "backup_before_deploy": os.getenv("BACKUP_BEFORE_DEPLOY", "true").lower() == "true",
+                "verify_deployment": os.getenv("VERIFY_DEPLOYMENT", "true").lower() == "true",
+                "security_logging": os.getenv("SECURITY_LOGGING", "true").lower() == "true",
+                "strict_mac_validation": os.getenv("STRICT_MAC_VALIDATION", "false").lower() == "true",
+                "network_configuration": {
+                    "enable_network_config": os.getenv("ENABLE_NETWORK_CONFIG", "true").lower() == "true",
+                    "wan_interface": os.getenv("WAN_INTERFACE", "enx0250f4000000"),
+                    "lan_interface": os.getenv("LAN_INTERFACE", "eth0"),
+                    "lan_ip": os.getenv("LAN_IP", "192.168.1.1"),
+                    "lan_netmask": os.getenv("LAN_NETMASK", "255.255.255.0"),
+                    "wan_protocol": os.getenv("WAN_PROTOCOL", "lte"),
+                    "lan_protocol": os.getenv("LAN_PROTOCOL", "static"),
+                    "ssh_ready_delay": int(os.getenv("SSH_READY_DELAY", "30")),
+                    "config_wait_time": int(os.getenv("CONFIG_WAIT_TIME", "5")),
+                    "service_restart_wait": int(os.getenv("SERVICE_RESTART_WAIT", "5")),
+                    "curl_install_wait": int(os.getenv("CURL_INSTALL_WAIT", "5")),
+                    "verification_wait": int(os.getenv("VERIFICATION_WAIT", "5")),
+                    "tailscale_auth_wait": int(os.getenv("TAILSCALE_AUTH_WAIT", "5"))
+                },
+                "tailscale": {
+                    "auth_key": os.getenv("TAILSCALE_AUTH_KEY", "YOUR_TAILSCALE_AUTH_KEY_HERE"),
+                    "enable_setup": os.getenv("ENABLE_TAILSCALE_SETUP", "true").lower() == "true"
+                },
+                "backup_configuration": {
+                    "backup_location": os.getenv("BACKUP_LOCATION", "/home/$USER"),
+                    "backup_before_deploy": os.getenv("BACKUP_BEFORE_DEPLOY", "true").lower() == "true",
+                    "restore_after_deploy": os.getenv("RESTORE_AFTER_DEPLOY", "true").lower() == "true"
+                },
+                "delays": {
+                    "ip_check": int(os.getenv("IP_CHECK_DELAY", "2")),
+                    "ssh_test": int(os.getenv("SSH_TEST_DELAY", "3")),
+                    "log_creation": int(os.getenv("LOG_CREATION_DELAY", "1")),
+                    "between_scripts": int(os.getenv("BETWEEN_SCRIPTS_DELAY", "5")),
+                    "script_completion": int(os.getenv("SCRIPT_COMPLETION_DELAY", "2")),
+                    "final_success": int(os.getenv("FINAL_SUCCESS_DELAY", "3")),
+                    "cycle_restart": int(os.getenv("CYCLE_RESTART_DELAY", "30"))
+                }
+            }
+            
+            return config
+            
         except FileNotFoundError:
             print(f"[INFO] Config file {config_file} not found, using defaults")
-            return {}
-        except json.JSONDecodeError as e:
-            print(f"[ERROR] Invalid JSON in config file: {e}")
-            return {}
+            return self._get_default_config()
+        except Exception as e:
+            print(f"[ERROR] Error loading config file: {e}")
+            return self._get_default_config()
+    
+    def _parse_ouis(self, ouis_str: str) -> Dict[str, str]:
+        """Parse authorized OUIs from comma-separated string"""
+        ouis = {}
+        if ouis_str:
+            for pair in ouis_str.split(","):
+                if ":" in pair:
+                    key, value = pair.split(":", 1)
+                    ouis[key.strip()] = value.strip()
+        return ouis
+    
+    def _get_default_config(self) -> Dict:
+        """Get default configuration when .env file is not available"""
+        return {
+            "network_range": "192.168.1.0/24",
+            "default_credentials": {"username": "admin", "password": "admin"},
+            "target_mac_prefixes": ["00:52:24", "02:52:24"],
+            "authorized_ouis": {},
+            "deployment_mode": "auto",
+            "ssh_timeout": 10,
+            "scan_timeout": 5,
+            "max_threads": 50,
+            "log_level": "INFO",
+            "backup_before_deploy": True,
+            "verify_deployment": True,
+            "security_logging": True,
+            "strict_mac_validation": False,
+            "network_configuration": {
+                "enable_network_config": True,
+                "wan_interface": "enx0250f4000000",
+                "lan_interface": "eth0",
+                "lan_ip": "192.168.1.1",
+                "lan_netmask": "255.255.255.0",
+                "wan_protocol": "lte",
+                "lan_protocol": "static",
+                "ssh_ready_delay": 30,
+                "config_wait_time": 5,
+                "service_restart_wait": 5,
+                "curl_install_wait": 5,
+                "verification_wait": 5,
+                "tailscale_auth_wait": 5
+            },
+            "tailscale": {
+                "auth_key": "YOUR_TAILSCALE_AUTH_KEY_HERE",
+                "enable_setup": True
+            },
+            "backup_configuration": {
+                "backup_location": "/home/$USER",
+                "backup_before_deploy": True,
+                "restore_after_deploy": True
+            },
+            "delays": {
+                "ip_check": 2,
+                "ssh_test": 3,
+                "log_creation": 1,
+                "between_scripts": 5,
+                "script_completion": 2,
+                "final_success": 3,
+                "cycle_restart": 30
+            }
+        }
 
     def log(self, message: str, level: str = "INFO"):
         """Log message with timestamp"""

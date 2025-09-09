@@ -97,7 +97,7 @@ pyinstaller --onefile unified_bivicom_bot_with_wan_config.py
 
 ## Configuration Management
 
-### Primary Config: `config.json`
+### Primary Config: `.env`
 
 **Key Configuration Sections:**
 - `network_range`: Target subnet for device scanning (default: "192.168.1.0/24")
@@ -381,7 +381,7 @@ add_route_cmd = f"sudo ip route add default via \"{wan_gateway}\" dev \"{wan_ifn
 - **System Configuration**: Complete deployments with all operations functioning correctly
 
 ### Debug Mode
-Set `"log_level": "DEBUG"` in `config.json` for detailed operation logging.
+Set `LOG_LEVEL=DEBUG` in `.env` for detailed operation logging.
 
 ## Security Considerations
 
@@ -416,7 +416,7 @@ Each package includes all necessary scripts, configuration files, and platform-s
 ### PyInstaller Integration
 ```bash
 # Create standalone executable
-pyinstaller --onefile --add-data "config.json:." master.py
+pyinstaller --onefile --add-data ".env:." master.py
 ```
 
 ## Development Patterns

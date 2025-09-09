@@ -25,7 +25,7 @@ pip install -r requirements.txt
 echo "🔨 Building executable..."
 pyinstaller --onefile --windowed \
     --name="Bivicom Configurator V1" \
-    --add-data="config.json:." \
+    --add-data=".env:." \
     --add-data="LICENSE:." \
     gui.py
 

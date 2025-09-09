@@ -1,5 +1,6 @@
 # Core dependencies for Bivicom Configurator V1
 paramiko>=2.7.0
+python-dotenv>=1.0.0  # For .env file support
 
 # GUI dependencies (optional)
 plyer>=2.0.0  # For system notifications

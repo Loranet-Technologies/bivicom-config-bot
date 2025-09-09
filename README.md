@@ -137,16 +137,31 @@ pyinstaller --onefile --windowed --name="Bivicom Configurator V1" gui.py
 
 ## Configuration
 
-### Primary Config: `config.json`
+### Primary Config: `.env`
 
-**Key Configuration Sections:**
-- `network_range`: Target subnet for device scanning (default: "192.168.1.0/24")
-- `default_credentials`: SSH authentication credentials
-- `target_mac_prefixes`: Bivicom device MAC identification patterns
-- `network_configuration`: Forward mode interface settings
-- `reverse_configuration`: LTE mode interface settings  
-- `tailscale`: VPN authentication configuration
-- `delays`: Timing controls for each deployment phase
+**Key Configuration Variables:**
+- `NETWORK_RANGE`: Target subnet for device scanning (default: "192.168.1.0/24")
+- `DEFAULT_USERNAME` / `DEFAULT_PASSWORD`: SSH authentication credentials
+- `TARGET_MAC_PREFIXES`: Bivicom device MAC identification patterns (comma-separated)
+- `WAN_INTERFACE` / `LAN_INTERFACE`: Network interface configuration
+- `TAILSCALE_AUTH_KEY`: Tailscale authentication key
+- `LOG_LEVEL`: Logging level (DEBUG, INFO, WARNING, ERROR)
+
+**Environment File Format:**
+```bash
+# Network Configuration
+NETWORK_RANGE=192.168.1.0/24
+DEFAULT_USERNAME=admin
+DEFAULT_PASSWORD=admin
+
+# Network Interfaces
+WAN_INTERFACE=enx0250f4000000
+LAN_INTERFACE=eth0
+LAN_IP=192.168.1.1
+
+# Tailscale
+TAILSCALE_AUTH_KEY=YOUR_TAILSCALE_AUTH_KEY_HERE
+```
 
 **Complete Configuration Example:**
 ```json
@@ -454,7 +469,7 @@ build_windows.bat
 #### Core Files
 - `radar_bot_gui.py` - Main GUI application
 - `requirements_gui.txt` - Python dependencies for GUI builds
-- `config.json` - Configuration file
+- `.env` - Environment configuration file
 
 #### Build Scripts
 - `build_all.sh` - Universal build script (detects platform)
@@ -532,7 +547,7 @@ Modify the build scripts to:
 ### PyInstaller Integration
 ```bash
 # Create standalone executable
-pyinstaller --onefile --add-data "config.json:." master.py
+pyinstaller --onefile --add-data ".env:." master.py
 ```
 
 ## GUI Application
@@ -949,7 +964,7 @@ ssh admin@192.168.1.1 "sudo /etc/init.d/network status"
 - 🐛 **Easier Debugging**: No need to reconnect after reboot
 
 #### Timing Optimizations
-- **Configurable Delays**: All wait times configurable in config.json
+- **Configurable Delays**: All wait times configurable in .env file
 - **Smart Timing**: Delays only where necessary for stability
 - **Parallel Operations**: Where possible, operations run in parallel
 

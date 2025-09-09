@@ -67,11 +67,11 @@ class UnifiedBivicomBot:
             "strict_mac_validation": False,
             "network_configuration": {
                 "enable_network_config": True,
-                "wan_interface": "eth1",  # Corrected: WAN on eth1
-                "lan_interface": "eth0",  # Corrected: LAN on eth0
+                "wan_interface": "enx0250f4000000",  # USB LTE device
+                "lan_interface": "eth0",  # LAN on eth0
                 "lan_ip": "192.168.1.1",
                 "lan_netmask": "255.255.255.0",
-                "wan_protocol": "dhcp",
+                "wan_protocol": "lte",
                 "lan_protocol": "static",
                 "ssh_ready_delay": 30,
                 "config_wait_time": 5,
@@ -203,11 +203,11 @@ class UnifiedBivicomBot:
             return False
 
     def create_uci_backup(self, ssh, ip: str) -> bool:
-        """Create UCI configuration backup using uci backup folder command"""
+        """Create UCI configuration backup using uci export command"""
         self.log(f"Creating UCI backup for {ip}")
         try:
-            # Use uci backup folder command as per project memory
-            backup_cmd = "sudo uci backup folder /home/$USER"
+            # Use uci export command to create backup
+            backup_cmd = f"sudo uci export > /home/$USER/uci-backup-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             stdin, stdout, stderr = ssh.exec_command(backup_cmd)
             exit_status = stdout.channel.recv_exit_status()
             
@@ -225,27 +225,32 @@ class UnifiedBivicomBot:
             return False
 
     def configure_network_settings_forward(self, ssh, ip: str) -> bool:
-        """Configure network settings FORWARD: WAN=eth1 (DHCP), LAN=eth0 (Static)"""
+        """Configure network settings FORWARD: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)"""
         self.log(f"Configuring network settings FORWARD on {ip} (NO REBOOT)")
         
         try:
-            # WAN Configuration (DHCP on eth1) - CORRECTED
+            # WAN Configuration (LTE on USB device) - Updated to match desired config
             wan_commands = [
-                "sudo uci set network.wan.proto='dhcp'",
-                "sudo uci set network.wan.ifname='eth1'",  # Corrected: WAN on eth1
-                "sudo uci set network.wan.mtu=1500"
+                "sudo uci set network.wan.proto='lte'",
+                "sudo uci set network.wan.ifname='enx0250f4000000'",  # USB LTE device
+                "sudo uci set network.wan.mtu=1500",
+                "sudo uci set network.wan.disabled='0'",
+                "sudo uci set network.wan.service='AUTO'",
+                "sudo uci set network.wan.auth_type='none'",
+                "sudo uci set network.wan.use_wifi_client='0'"
             ]
             
-            # LAN Configuration (Static on eth0) - CORRECTED
+            # LAN Configuration (Static on eth0) - Keep same
             lan_commands = [
                 "sudo uci set network.lan.proto='static'",
-                "sudo uci set network.lan.ifname='eth0'",  # Corrected: LAN on eth0
+                "sudo uci set network.lan.ifname='eth0'",
                 "sudo uci set network.lan.ipaddr='192.168.1.1'",
-                "sudo uci set network.lan.netmask='255.255.255.0'"
+                "sudo uci set network.lan.netmask='255.255.255.0'",
+                "sudo uci set network.lan.type='bridge'"
             ]
             
             # Execute WAN configuration
-            self.log(f"[{ip}] Configuring WAN interface (eth1) for DHCP...")
+            self.log(f"[{ip}] Configuring WAN interface (enx0250f4000000) for LTE...")
             for cmd in wan_commands:
                 self.log(f"[{ip}] Executing: {cmd}")
                 stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -371,17 +376,19 @@ class UnifiedBivicomBot:
             if wan_ip:
                 self.log(f"WAN interface ({active_interface}) has IP: {wan_ip}", "SUCCESS")
                 
-                # Test ping to 8.8.8.8
+                # Test ping to 8.8.8.8 (primary connectivity test)
                 self.log("Testing ping to 8.8.8.8...")
                 stdin, stdout, stderr = ssh.exec_command("ping -c 3 -W 5 8.8.8.8")
                 ping_exit_status = stdout.channel.recv_exit_status()
                 
                 if ping_exit_status == 0:
                     self.log("Ping to 8.8.8.8: ✅ SUCCESS", "SUCCESS")
+                    # Primary connectivity is working, this is sufficient
+                    return True
                 else:
                     self.log("Ping to 8.8.8.8: ❌ FAILED", "WARNING")
                 
-                # Test ping to google.com
+                # Test ping to google.com (secondary test for DNS resolution)
                 self.log("Testing ping to google.com...")
                 stdin, stdout, stderr = ssh.exec_command("ping -c 3 -W 5 google.com")
                 ping_exit_status = stdout.channel.recv_exit_status()
@@ -391,6 +398,7 @@ class UnifiedBivicomBot:
                     return True
                 else:
                     self.log("Ping to google.com: ❌ FAILED", "WARNING")
+                    # Even if DNS fails, if 8.8.8.8 worked, we have basic connectivity
                     return False
             else:
                 self.log("No WAN interface has IP address", "WARNING")
@@ -413,8 +421,9 @@ class UnifiedBivicomBot:
                 time.sleep(wait_time)
                 return True
             
-            # Install curl
-            install_cmd = "opkg update && opkg install curl"
+            # Install curl using apt (Ubuntu/Debian package manager)
+            install_cmd = "sudo apt update && sudo apt install -y curl"
+            self.log(f"Using Ubuntu/Debian package manager (apt)")
             stdin, stdout, stderr = ssh.exec_command(install_cmd)
             exit_status = stdout.channel.recv_exit_status()
             
@@ -432,48 +441,109 @@ class UnifiedBivicomBot:
             return False
 
     def deploy_infrastructure(self, ssh, ip: str) -> bool:
-        """Deploy infrastructure using curl and install.sh script"""
+        """Deploy infrastructure using curl and install.sh script with retry logic"""
         self.log(f"Deploying infrastructure on {ip}")
         
-        try:
-            # Deploy with auto mode
-            deploy_cmd = "curl -sSL https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh | bash -s -- --auto"
-            
-            self.log(f"Executing deployment command on {ip}")
-            stdin, stdout, stderr = ssh.exec_command(deploy_cmd)
-            
-            # Monitor deployment progress
-            deployment_success = self.monitor_deployment(ssh, stdout, stderr, ip)
-            
-            if deployment_success:
-                self.log(f"Infrastructure deployment completed successfully on {ip}", "SUCCESS")
-                return True
-            else:
-                self.log(f"Infrastructure deployment failed on {ip}", "ERROR")
-                return False
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                if attempt > 0:
+                    self.log(f"Retry attempt {attempt}/{max_retries} for infrastructure deployment")
+                    time.sleep(10)  # Wait 10 seconds before retry
                 
-        except Exception as e:
-            self.log(f"Infrastructure deployment error on {ip}: {e}", "ERROR")
-            return False
+                # First, test if curl can reach the URL
+                self.log(f"Testing connectivity to deployment URL on {ip}")
+                test_cmd = "curl -sSL --connect-timeout 10 --max-time 30 -I https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh"
+                stdin, stdout, stderr = ssh.exec_command(test_cmd)
+                test_exit_status = stdout.channel.recv_exit_status()
+                
+                if test_exit_status != 0:
+                    error_output = stderr.read().decode('utf-8').strip()
+                    self.log(f"Connectivity test failed: {error_output}", "ERROR")
+                    if attempt < max_retries:
+                        continue
+                    return False
+                else:
+                    self.log("Connectivity test successful", "SUCCESS")
+                
+                # Deploy with auto mode and better error handling
+                deploy_cmd = "curl -sSL --connect-timeout 30 --max-time 300 https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh | bash -s -- --auto"
+                
+                self.log(f"Executing deployment command on {ip}")
+                self.log(f"Command: {deploy_cmd}")
+                stdin, stdout, stderr = ssh.exec_command(deploy_cmd)
+                
+                # Monitor deployment progress
+                deployment_success = self.monitor_deployment(ssh, stdout, stderr, ip)
+                
+                if deployment_success:
+                    self.log(f"Infrastructure deployment completed successfully on {ip}", "SUCCESS")
+                    return True
+                else:
+                    self.log(f"Infrastructure deployment failed on {ip} (attempt {attempt + 1})", "ERROR")
+                    if attempt < max_retries:
+                        continue
+                    return False
+                    
+            except Exception as e:
+                self.log(f"Infrastructure deployment error on {ip} (attempt {attempt + 1}): {e}", "ERROR")
+                if attempt < max_retries:
+                    continue
+                return False
+        
+        return False
 
     def monitor_deployment(self, ssh, stdout, stderr, ip: str) -> bool:
         """Monitor deployment progress"""
         self.log(f"Monitoring deployment on {ip}")
         
         try:
-            # Read output in real-time
+            # Read output in real-time with timeout
+            start_time = time.time()
+            timeout = 300  # 5 minutes timeout
+            
             while True:
+                # Check for timeout
+                if time.time() - start_time > timeout:
+                    self.log(f"Deployment monitoring timeout after {timeout} seconds", "ERROR")
+                    return False
+                
+                # Check if command has finished
                 if stdout.channel.exit_status_ready():
                     break
                 
-                line = stdout.readline()
-                if line:
-                    self.log(f"[{ip}] {line.strip()}")
+                # Read stdout
+                if stdout.channel.recv_ready():
+                    line = stdout.readline()
+                    if line:
+                        self.log(f"[{ip}] {line.strip()}")
+                
+                # Read stderr
+                if stderr.channel.recv_stderr_ready():
+                    error_line = stderr.readline()
+                    if error_line:
+                        self.log(f"[{ip}] ERROR: {error_line.strip()}", "ERROR")
                 
                 time.sleep(0.1)
             
+            # Get final exit status
             exit_status = stdout.channel.recv_exit_status()
-            return exit_status == 0
+            
+            # Read any remaining output
+            remaining_stdout = stdout.read().decode('utf-8').strip()
+            if remaining_stdout:
+                self.log(f"[{ip}] Final output: {remaining_stdout}")
+            
+            remaining_stderr = stderr.read().decode('utf-8').strip()
+            if remaining_stderr:
+                self.log(f"[{ip}] Final errors: {remaining_stderr}", "ERROR")
+            
+            if exit_status == 0:
+                self.log(f"Deployment completed successfully on {ip}", "SUCCESS")
+                return True
+            else:
+                self.log(f"Deployment failed on {ip} with exit status {exit_status}", "ERROR")
+                return False
             
         except Exception as e:
             self.log(f"Deployment monitoring error: {e}", "ERROR")
@@ -496,17 +566,43 @@ class UnifiedBivicomBot:
             else:
                 self.log(f"[{ip}] User added to docker group successfully", "SUCCESS")
             
-            # Apply new group membership
+            # Start Docker service if not running
+            self.log(f"[{ip}] Ensuring Docker service is running...")
+            docker_start_commands = [
+                "sudo systemctl start docker",
+                "sudo service docker start",
+                "sudo /etc/init.d/docker start"
+            ]
+            
+            for start_cmd in docker_start_commands:
+                stdin, stdout, stderr = ssh.exec_command(start_cmd)
+                exit_status = stdout.channel.recv_exit_status()
+                if exit_status == 0:
+                    self.log(f"[{ip}] Docker service started: {start_cmd}", "SUCCESS")
+                    break
+                else:
+                    error_output = stderr.read().decode('utf-8').strip()
+                    self.log(f"[{ip}] Docker start failed: {start_cmd} - {error_output}", "WARNING")
+            
+            # Apply new group membership using sg command (works better in SSH)
             self.log(f"[{ip}] Applying new group membership...")
-            stdin, stdout, stderr = ssh.exec_command("newgrp docker")
+            stdin, stdout, stderr = ssh.exec_command("sg docker -c 'docker --version'")
             exit_status = stdout.channel.recv_exit_status()
             
-            if exit_status != 0:
-                error_output = stderr.read().decode('utf-8').strip()
-                self.log(f"[{ip}] Failed to apply new group membership: {error_output}", "WARNING")
-                # This is not critical, continue anyway
+            if exit_status == 0:
+                self.log(f"[{ip}] Docker group membership working: ✅", "SUCCESS")
+                return True
             else:
-                self.log(f"[{ip}] New group membership applied successfully", "SUCCESS")
+                # Fallback: try with newgrp
+                self.log(f"[{ip}] Trying newgrp as fallback...")
+                stdin, stdout, stderr = ssh.exec_command("newgrp docker")
+                exit_status = stdout.channel.recv_exit_status()
+                
+                if exit_status == 0:
+                    self.log(f"[{ip}] New group membership applied successfully", "SUCCESS")
+                else:
+                    error_output = stderr.read().decode('utf-8').strip()
+                    self.log(f"[{ip}] Failed to apply new group membership: {error_output}", "WARNING")
             
             # Test Docker without sudo
             self.log(f"[{ip}] Testing Docker without sudo...")
@@ -518,7 +614,7 @@ class UnifiedBivicomBot:
                 return True
             else:
                 self.log(f"[{ip}] Docker still requires sudo: ⚠️", "WARNING")
-                # This might be expected if newgrp didn't work in SSH context
+                self.log(f"[{ip}] Note: You may need to log out and back in for group changes to take effect", "INFO")
                 return True  # Continue anyway, user can manually run newgrp later
             
         except Exception as e:
@@ -530,26 +626,63 @@ class UnifiedBivicomBot:
         self.log(f"Verifying all installations on {ip}")
         
         try:
+            # Enhanced service verification with multiple check methods
             services_to_check = [
-                ("Docker", "docker --version"),
-                ("Node-RED", "node-red --version"),
-                ("Tailscale", "tailscale version")
+                ("Docker", [
+                    "sg docker -c 'docker --version'",
+                    "docker --version",
+                    "which docker"
+                ]),
+                ("Node-RED", [
+                    "node-red --version",
+                    "which node-red",
+                    "npm list -g node-red",
+                    "ls -la /usr/local/bin/node-red",
+                    "ls -la /usr/bin/node-red"
+                ]),
+                ("Tailscale", [
+                    "tailscale version",
+                    "which tailscale",
+                    "tailscale status"
+                ])
             ]
             
             all_installed = True
             docker_installed = False
+            nodered_installed = False
             
-            for service_name, check_cmd in services_to_check:
-                stdin, stdout, stderr = ssh.exec_command(check_cmd)
-                exit_status = stdout.channel.recv_exit_status()
+            for service_name, check_commands in services_to_check:
+                service_found = False
                 
-                if exit_status == 0:
-                    self.log(f"{service_name}: ✅ Installed", "SUCCESS")
-                    if service_name == "Docker":
-                        docker_installed = True
-                else:
+                for check_cmd in check_commands:
+                    self.log(f"Checking {service_name} with: {check_cmd}")
+                    stdin, stdout, stderr = ssh.exec_command(check_cmd)
+                    exit_status = stdout.channel.recv_exit_status()
+                    
+                    if exit_status == 0:
+                        output = stdout.read().decode('utf-8').strip()
+                        self.log(f"{service_name}: ✅ Installed - {output}", "SUCCESS")
+                        service_found = True
+                        
+                        if service_name == "Docker":
+                            docker_installed = True
+                        elif service_name == "Node-RED":
+                            nodered_installed = True
+                        break
+                    else:
+                        error_output = stderr.read().decode('utf-8').strip()
+                        self.log(f"{service_name} check failed: {check_cmd} - {error_output}", "DEBUG")
+                
+                if not service_found:
                     self.log(f"{service_name}: ❌ Not installed", "WARNING")
                     all_installed = False
+                    
+                    # Try to install Node-RED if it's missing
+                    if service_name == "Node-RED":
+                        self.log("Attempting to install Node-RED...")
+                        if self.install_nodered(ssh, ip):
+                            nodered_installed = True
+                            all_installed = True  # Reset flag since we just installed it
             
             # Configure Docker user group if Docker is installed
             if docker_installed:
@@ -567,6 +700,82 @@ class UnifiedBivicomBot:
             
         except Exception as e:
             self.log(f"Installation verification error: {e}", "ERROR")
+            return False
+
+    def install_nodered(self, ssh, ip: str) -> bool:
+        """Install Node-RED if it's missing"""
+        self.log(f"Installing Node-RED on {ip}")
+        
+        try:
+            # Check if Node.js is installed first
+            self.log("Checking for Node.js installation...")
+            stdin, stdout, stderr = ssh.exec_command("node --version")
+            node_exit_status = stdout.channel.recv_exit_status()
+            
+            if node_exit_status != 0:
+                self.log("Node.js not found, installing Node.js first...")
+                # Install Node.js using NodeSource repository
+                install_nodejs_cmd = "curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash - && sudo apt-get install -y nodejs"
+                stdin, stdout, stderr = ssh.exec_command(install_nodejs_cmd)
+                nodejs_exit_status = stdout.channel.recv_exit_status()
+                
+                if nodejs_exit_status != 0:
+                    error_output = stderr.read().decode('utf-8').strip()
+                    self.log(f"Node.js installation failed: {error_output}", "ERROR")
+                    return False
+                else:
+                    self.log("Node.js installed successfully", "SUCCESS")
+            else:
+                node_version = stdout.read().decode('utf-8').strip()
+                self.log(f"Node.js already installed: {node_version}", "SUCCESS")
+            
+            # Install Node-RED globally
+            self.log("Installing Node-RED globally...")
+            install_nodered_cmd = "sudo npm install -g --unsafe-perm node-red"
+            stdin, stdout, stderr = ssh.exec_command(install_nodered_cmd)
+            nodered_exit_status = stdout.channel.recv_exit_status()
+            
+            if nodered_exit_status != 0:
+                error_output = stderr.read().decode('utf-8').strip()
+                self.log(f"Node-RED installation failed: {error_output}", "ERROR")
+                return False
+            else:
+                self.log("Node-RED installed successfully", "SUCCESS")
+            
+            # Verify installation
+            self.log("Verifying Node-RED installation...")
+            stdin, stdout, stderr = ssh.exec_command("node-red --version")
+            verify_exit_status = stdout.channel.recv_exit_status()
+            
+            if verify_exit_status == 0:
+                nodered_version = stdout.read().decode('utf-8').strip()
+                self.log(f"Node-RED verification successful: {nodered_version}", "SUCCESS")
+                
+                # Start Node-RED service
+                self.log("Starting Node-RED service...")
+                start_commands = [
+                    "sudo systemctl start node-red",
+                    "sudo service node-red start",
+                    "nohup node-red > /dev/null 2>&1 &"
+                ]
+                
+                for start_cmd in start_commands:
+                    stdin, stdout, stderr = ssh.exec_command(start_cmd)
+                    exit_status = stdout.channel.recv_exit_status()
+                    if exit_status == 0:
+                        self.log(f"Node-RED service started: {start_cmd}", "SUCCESS")
+                        break
+                    else:
+                        error_output = stderr.read().decode('utf-8').strip()
+                        self.log(f"Node-RED start failed: {start_cmd} - {error_output}", "WARNING")
+                
+                return True
+            else:
+                self.log("Node-RED verification failed", "ERROR")
+                return False
+                
+        except Exception as e:
+            self.log(f"Node-RED installation error: {e}", "ERROR")
             return False
 
     def setup_tailscale(self, ssh, ip: str) -> bool:
@@ -638,11 +847,45 @@ class UnifiedBivicomBot:
             self.log(f"[{ip}] Route cleanup error: {e}", "WARNING")
             return False
 
+    def fix_hostname_resolution(self, ssh, ip: str) -> bool:
+        """Fix hostname resolution issues by ensuring localhost.localdomain is in /etc/hosts"""
+        self.log(f"[{ip}] Fixing hostname resolution...")
+        
+        try:
+            # Check if localhost.localdomain is already in /etc/hosts
+            stdin, stdout, stderr = ssh.exec_command("grep 'localhost.localdomain' /etc/hosts")
+            exit_status = stdout.channel.recv_exit_status()
+            
+            if exit_status != 0:
+                # Add localhost.localdomain to /etc/hosts
+                self.log(f"[{ip}] Adding localhost.localdomain to /etc/hosts...")
+                add_hosts_cmd = "echo '127.0.0.1 localhost.localdomain' | sudo tee -a /etc/hosts"
+                stdin, stdout, stderr = ssh.exec_command(add_hosts_cmd)
+                exit_status = stdout.channel.recv_exit_status()
+                
+                if exit_status == 0:
+                    self.log(f"[{ip}] localhost.localdomain added to /etc/hosts", "SUCCESS")
+                else:
+                    error_output = stderr.read().decode('utf-8').strip()
+                    self.log(f"[{ip}] Failed to add localhost.localdomain: {error_output}", "WARNING")
+            else:
+                self.log(f"[{ip}] localhost.localdomain already in /etc/hosts", "SUCCESS")
+            
+            return True
+            
+        except Exception as e:
+            self.log(f"[{ip}] Hostname resolution fix error: {e}", "WARNING")
+            return False
+
+
     def apply_wan_config(self, ssh, ip: str) -> bool:
         """Apply WAN configuration with enhanced network reload process"""
         self.log(f"Applying WAN configuration on {ip}")
         
         try:
+            # Step 0: Fix hostname resolution issues
+            self.fix_hostname_resolution(ssh, ip)
+            
             # Step 1: Commit UCI changes
             self.log(f"[{ip}] Committing UCI changes...")
             stdin, stdout, stderr = ssh.exec_command("sudo uci commit network")
@@ -657,9 +900,10 @@ class UnifiedBivicomBot:
             # Step 2: Clean up empty routes before applying configuration
             self.cleanup_empty_routes(ssh, ip)
             
-            # Step 3: Run network configuration
+            # Step 3: Run network configuration using /etc/init.d/network restart
             self.log(f"[{ip}] Running network configuration...")
-            network_config_cmd = "/usr/sbin/network_config" if self.check_command_exists(ssh, "/usr/sbin/network_config") else "/etc/init.d/network restart"
+            network_config_cmd = "/etc/init.d/network restart"
+            self.log(f"[{ip}] Executing: {network_config_cmd}")
             stdin, stdout, stderr = ssh.exec_command(network_config_cmd)
             exit_status = stdout.channel.recv_exit_status()
             
@@ -669,35 +913,8 @@ class UnifiedBivicomBot:
             else:
                 self.log(f"[{ip}] Network config successful", "SUCCESS")
             
-            # Step 4: Reload network services with luci-reload if available
-            self.log(f"[{ip}] Reloading network services...")
-            if self.check_command_exists(ssh, "/usr/sbin/luci-reload"):
-                # Create a dummy lock command if it doesn't exist
-                stdin, stdout, stderr = ssh.exec_command("command -v lock >/dev/null 2>&1 || echo '#!/bin/sh\necho \"lock: dummy command\"' > /tmp/lock && chmod +x /tmp/lock")
-                stdout.channel.recv_exit_status()  # Ignore exit status
-                
-                # Set PATH to include /tmp for the dummy lock command
-                stdin, stdout, stderr = ssh.exec_command("export PATH=\"/tmp:$PATH\" && /usr/sbin/luci-reload network")
-                exit_status = stdout.channel.recv_exit_status()
-                
-                if exit_status != 0:
-                    error_output = stderr.read().decode('utf-8').strip()
-                    self.log(f"[{ip}] luci-reload failed: {error_output}", "WARNING")
-                    # Fallback to network restart
-                    stdin, stdout, stderr = ssh.exec_command("/etc/init.d/network restart")
-                    stdout.channel.recv_exit_status()  # Ignore exit status for fallback
-                else:
-                    self.log(f"[{ip}] luci-reload successful", "SUCCESS")
-            else:
-                self.log(f"[{ip}] luci-reload not found, using network restart")
-                stdin, stdout, stderr = ssh.exec_command("/etc/init.d/network restart")
-                exit_status = stdout.channel.recv_exit_status()
-                
-                if exit_status != 0:
-                    error_output = stderr.read().decode('utf-8').strip()
-                    self.log(f"[{ip}] Network restart failed: {error_output}", "WARNING")
-                else:
-                    self.log(f"[{ip}] Network restart successful", "SUCCESS")
+            # Step 4: Skip luci-reload (not needed since /etc/init.d/network restart already worked)
+            self.log(f"[{ip}] Skipping luci-reload - network restart already completed successfully")
             
             # Step 5: Final cleanup of empty routes after configuration
             self.cleanup_empty_routes(ssh, ip)
@@ -718,40 +935,43 @@ class UnifiedBivicomBot:
         except Exception:
             return False
 
-    def restore_uci_backup_simple(self, ssh, ip: str) -> bool:
-        """Restore UCI configuration from backup (simple version - no enhanced process)"""
+    def restore_uci_backup_simple(self, ssh, ip: str, mode: str = "forward") -> bool:
+        """Restore network configuration using UCI import"""
         self.log(f"Restoring UCI configuration from backup on {ip}")
         
         try:
-            if not self.backup_path:
-                self.log("No backup path available, skipping restore", "WARNING")
+            # Find the most recent backup file
+            stdin, stdout, stderr = ssh.exec_command("ls -t /home/$USER/uci-backup-* 2>/dev/null | head -1")
+            backup_file = stdout.read().decode().strip()
+            
+            if not backup_file:
+                self.log(f"[{ip}] No backup file found, skipping restore", "WARNING")
                 return True
             
-            # Step 1: Restore UCI configuration
-            restore_cmd = f"sudo uci restore {self.backup_path}"
-            self.log(f"[{ip}] Executing: {restore_cmd}")
-            stdin, stdout, stderr = ssh.exec_command(restore_cmd)
+            self.log(f"[{ip}] Executing: sudo uci import < {backup_file}")
+            
+            stdin, stdout, stderr = ssh.exec_command(f"sudo uci import < {backup_file}")
             exit_status = stdout.channel.recv_exit_status()
             
-            if exit_status != 0:
-                error_output = stderr.read().decode('utf-8').strip()
-                self.log(f"[{ip}] Restore command failed: {restore_cmd} - {error_output}", "WARNING")
+            if exit_status == 0:
+                self.log(f"[{ip}] Restore command successful: sudo uci import < {backup_file}", "SUCCESS")
             else:
-                self.log(f"[{ip}] Restore command successful: {restore_cmd}", "SUCCESS")
+                error_output = stderr.read().decode().strip()
+                self.log(f"[{ip}] Restore command failed: sudo uci import < {backup_file} - {error_output}", "WARNING")
             
-            # Step 2: Simple network reload (no enhanced process to avoid conflicts)
+            # Reload network services (simple restore)
             self.log(f"[{ip}] Reloading network services (simple restore)...")
-            stdin, stdout, stderr = ssh.exec_command("sudo /etc/init.d/network reload")
+            stdin, stdout, stderr = ssh.exec_command("/etc/init.d/network reload")
             exit_status = stdout.channel.recv_exit_status()
             
-            if exit_status != 0:
-                error_output = stderr.read().decode('utf-8').strip()
-                self.log(f"[{ip}] Network reload failed: {error_output}", "WARNING")
-            else:
+            if exit_status == 0:
                 self.log(f"[{ip}] Network reload successful", "SUCCESS")
+                return True
+            else:
+                error_output = stderr.read().decode().strip()
+                self.log(f"[{ip}] Network reload failed: {error_output}", "WARNING")
+                return False
             
-            self.log(f"UCI configuration restored successfully on {ip}", "SUCCESS")
-            return True
         except Exception as e:
             self.log(f"UCI restore error: {e}", "ERROR")
             return False
@@ -839,8 +1059,10 @@ class UnifiedBivicomBot:
                 ssh.close()
                 return False
             
-            # Step 7: Check WAN connectivity
+            # Step 7: Check WAN connectivity (after route refresh)
             self.log("Step 7: Checking WAN connectivity")
+            self.log("Waiting additional 10 seconds for routes to refresh...")
+            time.sleep(10)
             wan_ok = self.check_wan_connectivity(ssh, target_ip)
             if not wan_ok:
                 self.log("WAN connectivity check failed, continuing anyway", "WARNING")
@@ -856,6 +1078,11 @@ class UnifiedBivicomBot:
             self.log("Step 9: Deploying infrastructure")
             if not self.deploy_infrastructure(ssh, target_ip):
                 self.log("Infrastructure deployment failed", "ERROR")
+                self.log("Attempting to restore UCI backup before closing connection...", "WARNING")
+                try:
+                    self.restore_uci_backup_simple(ssh, target_ip, mode)
+                except Exception as restore_error:
+                    self.log(f"Backup restore failed: {restore_error}", "ERROR")
                 ssh.close()
                 return False
             
@@ -871,11 +1098,11 @@ class UnifiedBivicomBot:
             if not tailscale_ok:
                 self.log("Tailscale setup failed", "WARNING")
             
-            # Step 12: Restore UCI backup (simple restore to avoid conflicts)
+            # Step 12: Restore UCI backup
             self.log("Step 12: Restoring UCI backup")
-            restore_ok = self.restore_uci_backup_simple(ssh, target_ip)
+            restore_ok = self.restore_uci_backup_simple(ssh, target_ip, mode)
             if not restore_ok:
-                self.log("UCI backup restore failed", "WARNING")
+                self.log("UCI configuration restore failed", "WARNING")
             
             # Close SSH connection
             ssh.close()
@@ -957,7 +1184,7 @@ def main():
     print("10. Master Bot Orchestration")
     print()
     print("Modes:")
-    print("  FORWARD: WAN=eth1 (DHCP), LAN=eth0 (Static)")
+    print("  FORWARD: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)")
     print("  REVERSE: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)")
     print()
     

@@ -27,7 +27,7 @@ import re
 from datetime import datetime
 
 class UnifiedBivicomBot:
-    def __init__(self, config_file: str = "bot_config.json"):
+    def __init__(self, config_file: str = "config.json"):
         self.config = self.load_config(config_file)
         self.ssh_client = None
         self.discovered_devices = []
@@ -45,26 +45,13 @@ class UnifiedBivicomBot:
                 "username": "admin",
                 "password": "admin"
             },
-            "target_mac_prefixes": [
-                "00:52:24",
-                "02:52:24"
-            ],
-            "authorized_ouis": {
-                "a4:7a:cf": "VIBICOM COMMUNICATIONS INC.",
-                "00:06:2c": "Bivio Networks",
-                "00:24:d9": "BICOM, Inc.",
-                "00:52:24": "Bivicom (custom/private)",
-                "02:52:24": "Bivicom (alternative)"
-            },
             "deployment_mode": "auto",
             "ssh_timeout": 10,
             "scan_timeout": 5,
             "max_threads": 50,
-            "log_level": "INFO",
-            "backup_before_deploy": True,
+            "log_level": "DEBUG",
             "verify_deployment": True,
             "security_logging": True,
-            "strict_mac_validation": False,
             "network_configuration": {
                 "enable_network_config": True,
                 "wan_interface": "enx0250f4000000",  # USB LTE device
@@ -89,11 +76,6 @@ class UnifiedBivicomBot:
             "tailscale": {
                 "auth_key": "YOUR_TAILSCALE_AUTH_KEY_HERE",
                 "enable_setup": True
-            },
-            "backup_configuration": {
-                "backup_location": "/home/$USER",
-                "backup_before_deploy": True,
-                "restore_after_deploy": True
             },
             "delays": {
                 "ip_check": 2,
@@ -466,8 +448,16 @@ class UnifiedBivicomBot:
                 else:
                     self.log("Connectivity test successful", "SUCCESS")
                 
-                # Deploy with auto mode and better error handling
-                deploy_cmd = "curl -sSL --connect-timeout 30 --max-time 300 https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh | bash -s -- --auto"
+                # Fix package conflicts before deployment
+                self.log(f"Fixing package conflicts on {ip}")
+                fix_cmd = "DEBIAN_FRONTEND=noninteractive sudo apt-get update && sudo apt-get install -f -y && sudo dpkg --configure -a"
+                stdin, stdout, stderr = ssh.exec_command(fix_cmd)
+                fix_exit_status = stdout.channel.recv_exit_status()
+                if fix_exit_status != 0:
+                    self.log(f"Package conflict fix failed, but continuing with deployment", "WARNING")
+                
+                # Deploy with auto mode and better error handling (non-interactive)
+                deploy_cmd = "DEBIAN_FRONTEND=noninteractive curl -sSL --connect-timeout 30 --max-time 300 https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/install.sh | bash -s -- --auto"
                 
                 self.log(f"Executing deployment command on {ip}")
                 self.log(f"Command: {deploy_cmd}")
@@ -500,7 +490,7 @@ class UnifiedBivicomBot:
         try:
             # Read output in real-time with timeout
             start_time = time.time()
-            timeout = 300  # 5 minutes timeout
+            timeout = 600  # 10 minutes timeout (increased for Node-RED node compilation)
             
             while True:
                 # Check for timeout
@@ -788,7 +778,7 @@ class UnifiedBivicomBot:
                 self.log("Tailscale auth key not configured, skipping setup", "WARNING")
                 return True
             
-            tailscale_cmd = f"tailscale up --authkey={auth_key}"
+            tailscale_cmd = f"sudo tailscale up --authkey={auth_key}"
             stdin, stdout, stderr = ssh.exec_command(tailscale_cmd)
             exit_status = stdout.channel.recv_exit_status()
             
@@ -813,11 +803,11 @@ class UnifiedBivicomBot:
             # Remove all empty default routes
             cleanup_commands = [
                 # Remove routes with empty gateway
-                "ip route show | grep 'default via $' | while read route; do ip route del $route 2>/dev/null || true; done",
+                "ip route show | grep 'default via $' | while read route; do sudo ip route del $route 2>/dev/null || true; done",
                 # Remove routes with empty gateway but with metric
-                "ip route show | grep 'default via  metric' | while read route; do ip route del $route 2>/dev/null || true; done",
+                "ip route show | grep 'default via  metric' | while read route; do sudo ip route del $route 2>/dev/null || true; done",
                 # Remove routes with empty dev
-                "ip route show | grep 'default via.*dev $' | while read route; do ip route del $route 2>/dev/null || true; done"
+                "ip route show | grep 'default via.*dev $' | while read route; do sudo ip route del $route 2>/dev/null || true; done"
             ]
             
             for cmd in cleanup_commands:
@@ -834,7 +824,7 @@ class UnifiedBivicomBot:
             
             if wan_gateway and wan_gateway != "" and wan_ifname:
                 self.log(f"[{ip}] Adding default route via {wan_gateway} dev {wan_ifname}")
-                add_route_cmd = f"ip route add default via \"{wan_gateway}\" dev \"{wan_ifname}\" 2>/dev/null || true"
+                add_route_cmd = f"sudo ip route add default via \"{wan_gateway}\" dev \"{wan_ifname}\" 2>/dev/null || true"
                 stdin, stdout, stderr = ssh.exec_command(add_route_cmd)
                 stdout.channel.recv_exit_status()  # Ignore exit status
             else:
@@ -902,7 +892,7 @@ class UnifiedBivicomBot:
             
             # Step 3: Run network configuration using /etc/init.d/network restart
             self.log(f"[{ip}] Running network configuration...")
-            network_config_cmd = "/etc/init.d/network restart"
+            network_config_cmd = "sudo /etc/init.d/network restart"
             self.log(f"[{ip}] Executing: {network_config_cmd}")
             stdin, stdout, stderr = ssh.exec_command(network_config_cmd)
             exit_status = stdout.channel.recv_exit_status()
@@ -961,7 +951,7 @@ class UnifiedBivicomBot:
             
             # Reload network services (simple restore)
             self.log(f"[{ip}] Reloading network services (simple restore)...")
-            stdin, stdout, stderr = ssh.exec_command("/etc/init.d/network reload")
+            stdin, stdout, stderr = ssh.exec_command("sudo /etc/init.d/network reload")
             exit_status = stdout.channel.recv_exit_status()
             
             if exit_status == 0:
@@ -1152,29 +1142,15 @@ class UnifiedBivicomBot:
         self.log("=" * 80)
         self.log("Bot stopped gracefully. Goodbye!")
 
-    def run_single_cycle(self, mode: str = "forward"):
-        """Run a single deployment cycle (NO REBOOT)"""
-        self.log("=" * 80)
-        self.log(f"UNIFIED BIVICOM BOT - SINGLE CYCLE MODE ({mode.upper()})")
-        self.log("=" * 80)
-        
-        success = self.run_complete_deployment_cycle(mode)
-        
-        if success:
-            self.log(f"Single cycle completed successfully! ({mode.upper()})", "SUCCESS")
-            return True
-        else:
-            self.log("Single cycle failed!", "ERROR")
-            return False
 
 def main():
     """Main function"""
-    print("Unified Bivicom Configuration Bot with Reverse Functionality")
-    print("===========================================================")
+    print("Bivicom Configuration Bot")
+    print("========================")
     print("This unified script combines all functionality:")
     print("1. Network Discovery & SSH Connection")
     print("2. UCI Backup Creation")
-    print("3. Network Configuration (Forward/Reverse) - NO REBOOT")
+    print("3. Network Configuration (LTE WAN) - NO REBOOT")
     print("4. Connectivity Verification")
     print("5. Curl Installation")
     print("6. Infrastructure Deployment")
@@ -1183,39 +1159,22 @@ def main():
     print("9. UCI Configuration Restore (Simple) - NO REBOOT")
     print("10. Master Bot Orchestration")
     print()
-    print("Modes:")
-    print("  FORWARD: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)")
-    print("  REVERSE: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)")
+    print("Configuration:")
+    print("  WAN: enx0250f4000000 (USB LTE device)")
+    print("  LAN: eth0 (Static IP 192.168.1.1)")
+    print()
+    print("Usage:")
+    print("  python3 unified_bivicom_bot_with_wan_config.py")
+    print()
+    print("Press Ctrl+C to stop")
     print()
     
-    # Check command line arguments
-    mode = "forward"  # default
-    run_mode = "forever"  # default
-    
-    if len(sys.argv) > 1:
-        for arg in sys.argv[1:]:
-            if arg == "--single":
-                run_mode = "single"
-            elif arg == "--reverse":
-                mode = "reverse"
-            elif arg == "--forward":
-                mode = "forward"
-    
-    if run_mode == "single":
-        print(f"Running in SINGLE CYCLE mode ({mode.upper()})")
-    else:
-        print(f"Running in FOREVER mode ({mode.upper()}) - press Ctrl+C to stop")
-    
-    print()
+    # Use fixed configuration mode
+    mode = "forward"
     
     # Initialize and run bot
     bot = UnifiedBivicomBot()
-    
-    if run_mode == "single":
-        success = bot.run_single_cycle(mode)
-        sys.exit(0 if success else 1)
-    else:
-        bot.run_forever_mode(mode)
+    bot.run_forever_mode(mode)
 
 if __name__ == "__main__":
     main()

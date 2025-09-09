@@ -217,7 +217,19 @@ BivicomRadarBot_Distribution.zip
 *~
 
 # Configuration files that might contain sensitive data
-config.json
 secrets.json
 .env.local
 .env.production
+
+# Project specific clutter
+venv_gui/
+releases/
+setting*
+=*
+wan_config_simple.sh
+build_simple.py
+BUILD_README.md
+GUI_BUILD_SUMMARY.md
+UNIFIED_BIVICOM_BOT_*.md
+radar_bot_gui.py
+unified_bivicom_bot_with_wan_config.py

@@ -1,5 +1,0 @@
-tkinter
-paramiko>=2.7.0
-scp>=0.14.0
-psutil>=5.8.0
-requests>=2.25.0

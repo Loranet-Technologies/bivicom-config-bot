@@ -26,21 +26,35 @@
   "strict_mac_validation": false,
   "network_configuration": {
     "enable_network_config": true,
-    "wan_interface": "eth0",
-    "lan_interface": "eth1",
+    "wan_interface": "enx0250f4000000",
+    "lan_interface": "eth0",
     "lan_ip": "192.168.1.1",
     "lan_netmask": "255.255.255.0",
-    "wan_protocol": "dhcp",
-    "lan_protocol": "dhcp",
-    "reboot_timeout": 300,
-    "ssh_ready_delay": 30
+    "wan_protocol": "lte",
+    "lan_protocol": "static",
+    "ssh_ready_delay": 30,
+    "config_wait_time": 5,
+    "service_restart_wait": 5,
+    "curl_install_wait": 5,
+    "verification_wait": 5,
+    "tailscale_auth_wait": 5
   },
-  "server_targets": {
-    "192.168.1.1": {
-      "priority": 1,
-      "description": "Main server requiring network configuration",
-      "requires_network_config": true,
-      "requires_reboot": true
-    }
+  "tailscale": {
+    "auth_key": "YOUR_TAILSCALE_AUTH_KEY_HERE",
+    "enable_setup": true
+  },
+  "backup_configuration": {
+    "backup_location": "/home/$USER",
+    "backup_before_deploy": true,
+    "restore_after_deploy": true
+  },
+  "delays": {
+    "ip_check": 2,
+    "ssh_test": 3,
+    "log_creation": 1,
+    "between_scripts": 5,
+    "script_completion": 2,
+    "final_success": 3,
+    "cycle_restart": 30
   }
 }

@@ -19,7 +19,7 @@ source venv/bin/activate
 # Install requirements
 echo "📥 Installing requirements..."
 pip install --upgrade pip
-pip install paramiko ipaddress plyer pyinstaller
+pip install -r requirements.txt
 
 # Build executable
 echo "🔨 Building executable..."

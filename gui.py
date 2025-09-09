@@ -28,7 +28,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 
 # Import the existing bot classes
-from unified_bivicom_bot_with_wan_config import UnifiedBivicomBot
+from master import UnifiedBivicomBot
 import io
 import contextlib
 

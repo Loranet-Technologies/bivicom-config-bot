@@ -102,9 +102,19 @@ class RadarBotGUI:
                                font=("Arial", 16, "bold"))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
         
+        # Mode selection frame
+        mode_frame = ttk.LabelFrame(main_frame, text="Operation Mode", padding="5")
+        mode_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        self.mode_var = tk.StringVar(value="single")
+        ttk.Radiobutton(mode_frame, text="Single Cycle", variable=self.mode_var, 
+                       value="single").grid(row=0, column=0, padx=(0, 20), sticky=tk.W)
+        ttk.Radiobutton(mode_frame, text="Run Forever (until stopped)", variable=self.mode_var, 
+                       value="forever").grid(row=0, column=1, sticky=tk.W)
+        
         # Control buttons frame
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        control_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Start/Stop button
         self.start_button = ttk.Button(control_frame, text="Start Bot", 
@@ -118,7 +128,7 @@ class RadarBotGUI:
         
         # Log display
         log_frame = ttk.LabelFrame(main_frame, text="Log Output", padding="5")
-        log_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        log_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -136,11 +146,11 @@ class RadarBotGUI:
         
         # Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        self.progress.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # Bottom info frame
         info_frame = ttk.Frame(main_frame)
-        info_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        info_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # Cycle count
         self.cycle_label = ttk.Label(info_frame, text="Cycles: 0")
@@ -224,17 +234,38 @@ class RadarBotGUI:
         try:
             # Use fixed configuration mode (previously called "forward")
             mode = "forward"
-            self.log_message("Starting bot with standard configuration", "INFO")
+            operation_mode = self.mode_var.get()
             
-            # Run a single cycle instead of forever mode
-            success = self.bot.run_complete_deployment_cycle(mode)
-            
-            if success:
-                self.log_message("Bot cycle completed successfully!", "SUCCESS")
-                self.show_notification("Bivicom Configurator V1", "Device setup completed successfully!")
+            if operation_mode == "forever":
+                self.log_message("Starting bot in forever mode with standard configuration", "INFO")
+                self.log_message("Bot will run continuously until stopped", "INFO")
+                
+                # Run forever mode
+                self.bot.run_forever_mode(mode)
+                
+                # Update status when forever mode ends
+                if self.bot.shutdown_requested:
+                    self.log_message("Bot stopped by user request.", "INFO")
+                    self.show_notification("Bivicom Configurator V1", "Bot stopped by user.")
+                else:
+                    self.log_message("Bot completed all cycles.", "SUCCESS")
+                    self.show_notification("Bivicom Configurator V1", "Bot completed successfully.")
             else:
-                self.log_message("Bot cycle failed!", "ERROR")
-                self.show_notification("Bivicom Configurator V1", "Device setup failed!")
+                self.log_message("Starting bot with single cycle configuration", "INFO")
+                
+                # Run a single cycle that can be stopped gracefully
+                success = self.bot.run_single_cycle(mode)
+                
+                if success:
+                    self.log_message("Bot cycle completed successfully!", "SUCCESS")
+                    self.show_notification("Bivicom Configurator V1", "Device setup completed successfully!")
+                else:
+                    if self.bot.shutdown_requested:
+                        self.log_message("Bot cycle stopped by user request.", "INFO")
+                        self.show_notification("Bivicom Configurator V1", "Device setup stopped by user.")
+                    else:
+                        self.log_message("Bot cycle completed with issues (device may not be ready)", "WARNING")
+                        self.show_notification("Bivicom Configurator V1", "Device setup completed with issues.")
             
             # Update status
             self.root.after(0, lambda: self.status_label.config(text="Status: Completed"))

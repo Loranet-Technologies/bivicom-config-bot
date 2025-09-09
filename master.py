@@ -1133,14 +1133,41 @@ class UnifiedBivicomBot:
             if success:
                 self.log(f"Cycle #{self.cycle_count} completed successfully. Waiting before next cycle...")
             else:
-                self.log(f"Cycle #{self.cycle_count} failed. Waiting before retry...")
+                if self.shutdown_requested:
+                    self.log(f"Cycle #{self.cycle_count} stopped by user request.")
+                    break
+                else:
+                    self.log(f"Cycle #{self.cycle_count} retrying... (Press Ctrl+C to stop)")
             
-            self.delay("cycle_restart", "Waiting before next cycle")
+            if not self.shutdown_requested:
+                self.delay("cycle_restart", "Waiting before next cycle")
         
         self.log("=" * 80)
-        self.log(f"UNIFIED BIVICOM BOT SHUTDOWN - COMPLETED {self.cycle_count} CYCLES")
+        if self.shutdown_requested:
+            self.log(f"UNIFIED BIVICOM BOT STOPPED BY USER - COMPLETED {self.cycle_count} CYCLES")
+        else:
+            self.log(f"UNIFIED BIVICOM BOT SHUTDOWN - COMPLETED {self.cycle_count} CYCLES")
         self.log("=" * 80)
         self.log("Bot stopped gracefully. Goodbye!")
+
+    def run_single_cycle(self, mode: str = "forward"):
+        """Run a single cycle that can be stopped gracefully"""
+        self.log("=" * 80)
+        self.log(f"UNIFIED BIVICOM BOT - SINGLE CYCLE ({mode.upper()})")
+        self.log("=" * 80)
+        
+        self.cycle_count += 1
+        success = self.run_complete_deployment_cycle(mode)
+        
+        if success:
+            self.log("Cycle completed successfully!", "SUCCESS")
+        else:
+            if self.shutdown_requested:
+                self.log("Cycle stopped by user request.", "INFO")
+            else:
+                self.log("Cycle completed with issues (device may not be ready)", "WARNING")
+        
+        return success
 
 
 def main():

@@ -61,7 +61,7 @@ def play_sound(sound_type="success"):
 class GUIBotWrapper(NetworkBot):
     """Wrapper for NetworkBot that integrates with GUI logging"""
     
-    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin", step_highlight_callback=None):
+    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin", step_highlight_callback=None, final_ip="192.168.1.1", final_password="admin"):
         # Initialize parent class but skip logging setup for GUI mode
         self.target_ip = target_ip
         self.scan_interval = scan_interval
@@ -70,6 +70,8 @@ class GUIBotWrapper(NetworkBot):
         self.script_path = os.path.join(os.path.dirname(__file__), "network_config.sh")
         self.username = username
         self.password = password
+        self.final_ip = final_ip
+        self.final_password = final_password
         
         # Set up signal handlers (but not logging)
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -196,12 +198,12 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "reverse": {
                     "name": "Configure Network REVERSE",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
+                    "cmd": [self.script_path, "--remote", self.final_ip, self.username, self.password, "reverse"],
                     "timeout": 60
                 },
                 "set-password": {
                     "name": "Change Device Password",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", self.password],
+                    "cmd": [self.script_path, "--remote", self.final_ip, self.username, self.password, "set-password", self.final_password],
                     "timeout": 60
                 }
             }
@@ -458,6 +460,30 @@ class NetworkBotGUI:
         ttk.Label(ip_frame, text="(Default: 10 seconds)", 
                  font=("Arial", 8), foreground="gray").grid(row=3, column=2, sticky=tk.W, pady=(5, 0))
         
+        # Final IP configuration (for REVERSE step)
+        ttk.Label(ip_frame, text="Final IP (Step 10):").grid(row=4, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.final_ip_var = tk.StringVar(value="192.168.1.1")
+        self.final_ip_entry = ttk.Entry(ip_frame, textvariable=self.final_ip_var, width=15)
+        self.final_ip_entry.grid(row=4, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        
+        ttk.Label(ip_frame, text="(Default: 192.168.1.1)", 
+                 font=("Arial", 8), foreground="gray").grid(row=4, column=2, sticky=tk.W, pady=(5, 0))
+        
+        # Final password configuration (for set-password step)
+        ttk.Label(ip_frame, text="Final Password (Step 11):").grid(row=5, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.final_password_var = tk.StringVar(value="admin")
+        self.final_password_entry = ttk.Entry(ip_frame, textvariable=self.final_password_var, width=15, show="*")
+        self.final_password_entry.grid(row=5, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        
+        # Show/Hide final password button
+        self.show_final_password_var = tk.BooleanVar()
+        self.show_final_password_check = ttk.Checkbutton(ip_frame, text="Show", variable=self.show_final_password_var, 
+                                                       command=self.toggle_final_password_visibility)
+        self.show_final_password_check.grid(row=5, column=2, sticky=tk.W, padx=(5, 0), pady=(5, 0))
+        
+        ttk.Label(ip_frame, text="(Default: admin)", 
+                 font=("Arial", 8), foreground="gray").grid(row=5, column=3, sticky=tk.W, pady=(5, 0))
+        
         # Function selection frame
         selection_frame = ttk.LabelFrame(right_frame, text="Function Selection", padding="5")
         selection_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
@@ -483,8 +509,8 @@ class NetworkBotGUI:
             ("import-nodered-flows", "Import Node-RED Flows", ["install-services"]),
             ("update-nodered-auth", "Update Node-RED Authentication (uses GUI password)", ["install-services"]),
             ("install-tailscale", "Install Tailscale VPN Router", ["install-docker"]),
-            ("reverse", "Configure Network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)", []),
-            ("set-password", "Change Device Password (uses GUI password)", [])
+            ("reverse", "Configure Network REVERSE (uses Final IP)", []),
+            ("set-password", "Change Device Password (uses Final Password)", [])
         ]
         
         for i, (command, description, dependencies) in enumerate(self.function_descriptions):
@@ -660,6 +686,13 @@ class NetworkBotGUI:
         else:
             self.password_entry.config(show="*")
     
+    def toggle_final_password_visibility(self):
+        """Toggle final password visibility"""
+        if self.show_final_password_var.get():
+            self.final_password_entry.config(show="")
+        else:
+            self.final_password_entry.config(show="*")
+    
     def select_all_functions(self):
         """Select all functions"""
         for var, command, dependencies in self.function_vars:
@@ -793,9 +826,11 @@ class NetworkBotGUI:
             scan_interval = int(self.scan_interval_var.get().strip() or "10")
             username = self.username_var.get().strip() or "admin"
             password = self.password_var.get().strip() or "admin"
+            final_ip = self.final_ip_var.get().strip() or "192.168.1.1"
+            final_password = self.final_password_var.get().strip() or "admin"
             
             # Create bot instance with GUI logging integration
-            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step)
+            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step, final_ip, final_password)
             
             # Set selected functions for the bot
             selected_functions = self.get_selected_functions()

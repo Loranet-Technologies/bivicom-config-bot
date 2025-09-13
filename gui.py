@@ -84,7 +84,7 @@ def play_sound(sound_type="success"):
 class GUIBotWrapper(NetworkBot):
     """Wrapper for NetworkBot that integrates with GUI logging"""
     
-    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin", step_highlight_callback=None, final_ip="192.168.1.1", final_password="admin"):
+    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin", step_highlight_callback=None, final_ip="192.168.1.1", final_password="admin", flows_source="auto", github_url=""):
         # Initialize parent class but skip logging setup for GUI mode
         self.target_ip = target_ip
         self.scan_interval = scan_interval
@@ -95,6 +95,8 @@ class GUIBotWrapper(NetworkBot):
         self.password = password
         self.final_ip = final_ip
         self.final_password = final_password
+        self.flows_source = flows_source
+        self.github_url = github_url
         
         # Set up signal handlers (but not logging)
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -206,7 +208,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "import-nodered-flows": {
                     "name": "Import Node-RED Flows",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows", self.flows_source],
                     "timeout": 120
                 },
                 "update-nodered-auth": {
@@ -506,6 +508,22 @@ class NetworkBotGUI:
         
         ttk.Label(ip_frame, text="(Default: admin)", 
                  font=("Arial", 8), foreground="gray").grid(row=5, column=3, sticky=tk.W, pady=(5, 0))
+        
+        # Node-RED Flows Configuration
+        ttk.Label(ip_frame, text="Flows Source:").grid(row=6, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.flows_source_var = tk.StringVar(value="auto")
+        flows_source_combo = ttk.Combobox(ip_frame, textvariable=self.flows_source_var, width=15, state="readonly")
+        flows_source_combo['values'] = ("auto", "local", "github")
+        flows_source_combo.grid(row=6, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        
+        ttk.Label(ip_frame, text="(auto=detect, local=./nodered_flows_backup, github=download)", 
+                 font=("Arial", 8), foreground="gray").grid(row=6, column=2, columnspan=2, sticky=tk.W, pady=(5, 0))
+        
+        # GitHub URL for flows (optional)
+        ttk.Label(ip_frame, text="GitHub URL (optional):").grid(row=7, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.github_url_var = tk.StringVar(value="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/flows.json")
+        self.github_url_entry = ttk.Entry(ip_frame, textvariable=self.github_url_var, width=40)
+        self.github_url_entry.grid(row=7, column=1, columnspan=3, sticky=tk.W, padx=(0, 10), pady=(5, 0))
         
         # Function selection frame
         selection_frame = ttk.LabelFrame(right_frame, text="Function Selection", padding="5")
@@ -851,9 +869,11 @@ class NetworkBotGUI:
             password = self.password_var.get().strip() or "admin"
             final_ip = self.final_ip_var.get().strip() or "192.168.1.1"
             final_password = self.final_password_var.get().strip() or "admin"
+            flows_source = self.flows_source_var.get().strip() or "auto"
+            github_url = self.github_url_var.get().strip() or ""
             
             # Create bot instance with GUI logging integration
-            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step, final_ip, final_password)
+            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step, final_ip, final_password, flows_source, github_url)
             
             # Set selected functions for the bot
             selected_functions = self.get_selected_functions()

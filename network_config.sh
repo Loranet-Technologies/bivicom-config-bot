@@ -1727,6 +1727,47 @@ install_nodered_nodes() {
     print_success "Node-RED nodes installation completed"
 }
 
+# Function to download flows from GitHub
+download_flows_from_github() {
+    print_status "Downloading Node-RED flows from GitHub..."
+    
+    # GitHub URLs for flows (you can customize these)
+    local github_flows_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/flows.json"
+    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/package.json"
+    
+    # Check if curl is available
+    if ! command -v curl >/dev/null 2>&1; then
+        print_error "curl is not installed. Cannot download from GitHub."
+        return 1
+    fi
+    
+    # Download flows.json
+    print_status "Downloading flows.json from GitHub..."
+    if execute_command "curl -s -L -o /tmp/flows.json '$github_flows_url'" "Download flows.json"; then
+        print_success "flows.json downloaded successfully"
+    else
+        print_error "Failed to download flows.json from GitHub"
+        return 1
+    fi
+    
+    # Verify the downloaded file
+    if [ ! -f "/tmp/flows.json" ] || [ ! -s "/tmp/flows.json" ]; then
+        print_error "Downloaded flows.json is empty or missing"
+        return 1
+    fi
+    
+    # Download package.json (optional)
+    print_status "Downloading package.json from GitHub..."
+    if execute_command "curl -s -L -o /tmp/package.json '$github_package_url'" "Download package.json"; then
+        print_success "package.json downloaded successfully"
+    else
+        print_warning "Failed to download package.json (optional)"
+    fi
+    
+    print_success "GitHub download completed"
+    return 0
+}
+
 # Function to import Node-RED flows
 import_nodered_flows() {
     print_status "Importing Node-RED flows..."
@@ -1737,22 +1778,85 @@ import_nodered_flows() {
         return 1
     fi
     
-    # Check if flows.json file exists locally
-    local flows_file="/Users/shamry/Projects/bivicom-radar/nodered_flows/nodered_flows_backup/flows.json"
-    if [ ! -f "$flows_file" ]; then
-        print_error "Flows file not found at: $flows_file"
-        return 1
+    # Determine flows source based on parameter or auto-detect
+    local flows_source_type="${FLOWS_SOURCE:-auto}"
+    local flows_file=""
+    local flows_source=""
+    
+    if [ "$flows_source_type" = "github" ]; then
+        # Force GitHub download
+        print_status "Forcing GitHub download for flows..."
+        if download_flows_from_github; then
+            flows_file="/tmp/flows.json"
+            flows_source="GitHub download (forced)"
+        else
+            print_error "Failed to download flows from GitHub"
+            return 1
+        fi
+    elif [ "$flows_source_type" = "local" ]; then
+        # Force local file search
+        print_status "Searching for local flows.json files..."
+        if [ -f "./nodered_flows_backup/flows.json" ]; then
+            flows_file="./nodered_flows_backup/flows.json"
+            flows_source="local directory (forced)"
+        elif [ -f "../nodered_flows_backup/flows.json" ]; then
+            flows_file="../nodered_flows_backup/flows.json"
+            flows_source="parent directory (forced)"
+        elif [ -f "$(dirname "$0")/nodered_flows_backup/flows.json" ]; then
+            flows_file="$(dirname "$0")/nodered_flows_backup/flows.json"
+            flows_source="script directory (forced)"
+        elif [ -f "$HOME/nodered_flows_backup/flows.json" ]; then
+            flows_file="$HOME/nodered_flows_backup/flows.json"
+            flows_source="home directory (forced)"
+        else
+            print_error "No local flows.json found in any of these locations:"
+            print_error "  - ./nodered_flows_backup/flows.json"
+            print_error "  - ../nodered_flows_backup/flows.json"
+            print_error "  - ~/nodered_flows_backup/flows.json"
+            return 1
+        fi
+    else
+        # Auto-detect (default behavior)
+        print_status "Auto-detecting flows source..."
+        if [ -f "./nodered_flows_backup/flows.json" ]; then
+            flows_file="./nodered_flows_backup/flows.json"
+            flows_source="local directory (auto-detected)"
+        elif [ -f "../nodered_flows_backup/flows.json" ]; then
+            flows_file="../nodered_flows_backup/flows.json"
+            flows_source="parent directory (auto-detected)"
+        elif [ -f "$(dirname "$0")/nodered_flows_backup/flows.json" ]; then
+            flows_file="$(dirname "$0")/nodered_flows_backup/flows.json"
+            flows_source="script directory (auto-detected)"
+        elif [ -f "$HOME/nodered_flows_backup/flows.json" ]; then
+            flows_file="$HOME/nodered_flows_backup/flows.json"
+            flows_source="home directory (auto-detected)"
+        else
+            print_status "No local flows.json found, downloading from GitHub..."
+            if download_flows_from_github; then
+                flows_file="/tmp/flows.json"
+                flows_source="GitHub download (auto-detected)"
+            else
+                print_error "Failed to download flows from GitHub and no local flows.json found"
+                print_error "Please ensure flows.json exists in one of these locations:"
+                print_error "  - ./nodered_flows_backup/flows.json"
+                print_error "  - ../nodered_flows_backup/flows.json"
+                print_error "  - ~/nodered_flows_backup/flows.json"
+                return 1
+            fi
+        fi
     fi
     
-    print_status "Found flows file: $flows_file"
+    print_status "Found flows file: $flows_file (source: $flows_source)"
     
-    # Copy flows.json to the remote system
-    print_status "Copying flows.json to remote system..."
-    if copy_to_remote "$flows_file" "/tmp/flows.json" "Copy flows file"; then
-        print_success "Flows file copied successfully"
-    else
-        print_error "Failed to copy flows file"
-        return 1
+    # Copy flows.json to the remote system (if not already downloaded)
+    if [ "$flows_source" != "GitHub download" ]; then
+        print_status "Copying flows.json to remote system..."
+        if copy_to_remote "$flows_file" "/tmp/flows.json" "Copy flows file"; then
+            print_success "Flows file copied successfully"
+        else
+            print_error "Failed to copy flows file"
+            return 1
+        fi
     fi
     
     # Stop Node-RED container to import flows
@@ -2246,7 +2350,7 @@ show_help() {
     echo "  install-restreamer  Install Restreamer with Docker Compose (hardware privileges)"
     echo "  install-services    Install all Docker services (Node-RED, Portainer, Restreamer)"
     echo "  install-nodered-nodes Install Node-RED nodes (ffmpeg, queue-gate, sqlite, serialport)"
-    echo "  import-nodered-flows Import Node-RED flows from backup"
+    echo "  import-nodered-flows [SOURCE] Import Node-RED flows (auto|local|github)"
     echo "  update-nodered-auth [PASSWORD] Update Node-RED authentication with custom password"
     echo "  install-tailscale   Install Tailscale VPN router in Docker"
     echo "  install-curl        Install curl package"
@@ -2266,7 +2370,9 @@ show_help() {
     echo "  $0 add-user-to-docker         # Add user to docker group locally"
     echo "  $0 install-services           # Install all Docker services locally"
     echo "  $0 install-nodered-nodes      # Install Node-RED nodes locally"
-    echo "  $0 import-nodered-flows       # Import Node-RED flows locally"
+    echo "  $0 import-nodered-flows       # Import Node-RED flows (auto-detect source)"
+    echo "  $0 import-nodered-flows local # Import Node-RED flows from local files"
+    echo "  $0 import-nodered-flows github # Import Node-RED flows from GitHub"
     echo "  $0 update-nodered-auth mypass # Update Node-RED password locally"
     echo "  $0 install-tailscale          # Install Tailscale VPN router locally"
     echo "  $0 install-curl               # Install curl locally"
@@ -2362,7 +2468,13 @@ main() {
                 ;;
             import-nodered-flows)
                 command="import-nodered-flows"
-                shift
+                # Check if flows source is provided as next argument
+                if [[ $# -gt 0 && $2 =~ ^(auto|local|github)$ ]]; then
+                    FLOWS_SOURCE="$2"
+                    shift 2
+                else
+                    shift
+                fi
                 ;;
             update-nodered-auth)
                 command="update-nodered-auth"

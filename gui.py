@@ -898,11 +898,28 @@ class NetworkBotGUI:
                                      "Are you sure you want to continue?"):
                 return
             
-            # Get configuration from GUI
+            # Get configuration from GUI (do this in main thread)
             target_ip = self.target_ip_var.get().strip() or "192.168.1.1"
             username = self.username_var.get().strip() or "admin"
             password = self.password_var.get().strip() or "admin"
             
+            # Start reset in separate thread to avoid blocking GUI
+            self.reset_button.config(text="Resetting...", state="disabled")
+            self.status_label.config(text="Status: Resetting Device...")
+            
+            # Start reset thread
+            reset_thread = threading.Thread(target=self.run_reset_device, args=(target_ip, username, password))
+            reset_thread.daemon = True
+            reset_thread.start()
+            
+        except Exception as e:
+            self.log_message(f"Failed to start reset: {e}", "ERROR")
+            self.reset_button.config(text="Reset Device", state="normal")
+            self.status_label.config(text="Status: Error")
+    
+    def run_reset_device(self, target_ip, username, password):
+        """Run reset device command in separate thread"""
+        try:
             self.log_message("🔄 Starting device reset...", "WARNING")
             self.log_message(f"🎯 Target device: {target_ip}", "INFO")
             self.log_message(f"👤 Username: {username}", "INFO")
@@ -980,14 +997,31 @@ class NetworkBotGUI:
                 error_msg = "Device reset encountered errors."
                 if any("uci: command not found" in line for line in output_lines):
                     error_msg += "\n\nThis device may not be running OpenWrt or UCI is not installed."
+                elif any("Permission denied" in line for line in output_lines):
+                    error_msg += "\n\nPermission denied. Please check your username and password."
+                elif any("Connection refused" in line for line in output_lines):
+                    error_msg += "\n\nConnection refused. Please check if the device is reachable."
+                else:
+                    error_msg += f"\n\nReturn code: {return_code}"
                 self.show_notification("Device Reset Failed", error_msg)
+            
+            # Update UI elements in main thread
+            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
+            self.root.after(0, lambda: self.status_label.config(text="Status: Ready"))
+            self.root.after(0, lambda: self.progress_summary.config(text="Device reset completed", foreground="green"))
                 
         except subprocess.TimeoutExpired:
             self.log_message("⏰ Device reset timed out after 10 minutes", "ERROR")
             self.show_notification("Device Reset Timeout", "Device reset timed out. Check device connectivity.")
+            # Update UI elements in main thread
+            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
+            self.root.after(0, lambda: self.status_label.config(text="Status: Timeout"))
         except Exception as e:
             self.log_message(f"❌ Error during device reset: {e}", "ERROR")
             self.show_notification("Device Reset Error", f"Error during reset: {e}")
+            # Update UI elements in main thread
+            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
+            self.root.after(0, lambda: self.status_label.config(text="Status: Error"))
     
     def run_bot(self):
         """Run the bot (called in separate thread)"""

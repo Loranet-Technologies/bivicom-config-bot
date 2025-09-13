@@ -18,9 +18,9 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox
 import threading
 import queue
+import os
 import time
 import sys
-import os
 import signal
 import subprocess
 import platform
@@ -95,7 +95,7 @@ class RadarBotGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(2, weight=1)
+        main_frame.rowconfigure(5, weight=1)
         
         # Title
         title_label = ttk.Label(main_frame, text="Bivicom Configurator V1", 
@@ -112,9 +112,45 @@ class RadarBotGUI:
         ttk.Radiobutton(mode_frame, text="Run Forever (until stopped)", variable=self.mode_var, 
                        value="forever").grid(row=0, column=1, sticky=tk.W)
         
+        # Final IP configuration frame
+        ip_frame = ttk.LabelFrame(main_frame, text="Final LAN IP Configuration", padding="5")
+        ip_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        ttk.Label(ip_frame, text="Final LAN IP:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.final_ip_var = tk.StringVar(value="192.168.1.1")
+        self.final_ip_entry = ttk.Entry(ip_frame, textvariable=self.final_ip_var, width=15)
+        self.final_ip_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+        
+        ttk.Label(ip_frame, text="(Default: 192.168.1.1)", 
+                 font=("Arial", 8), foreground="gray").grid(row=0, column=2, sticky=tk.W)
+        
+        # Tailscale Auth Key configuration frame
+        tailscale_frame = ttk.LabelFrame(main_frame, text="Tailscale Configuration", padding="5")
+        tailscale_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        ttk.Label(tailscale_frame, text="Auth Key:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.tailscale_auth_var = tk.StringVar(value="YOUR_TAILSCALE_AUTH_KEY_HERE")
+        self.tailscale_auth_entry = ttk.Entry(tailscale_frame, textvariable=self.tailscale_auth_var, width=40, show="*")
+        self.tailscale_auth_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+        
+        ttk.Label(tailscale_frame, text="(Valid for 90 days)", 
+                 font=("Arial", 8), foreground="gray").grid(row=0, column=2, sticky=tk.W)
+        
+        # Route advertising info
+        ttk.Label(tailscale_frame, text="Route Advertising:", 
+                 font=("Arial", 9, "bold")).grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
+        ttk.Label(tailscale_frame, text="Will advertise Final LAN IP subnet (e.g., 192.168.100.0/24)", 
+                 font=("Arial", 8), foreground="blue").grid(row=1, column=1, columnspan=2, sticky=tk.W, pady=(5, 0))
+        
+        # Tags info
+        ttk.Label(tailscale_frame, text="Tags:", 
+                 font=("Arial", 9, "bold")).grid(row=2, column=0, sticky=tk.W, pady=(2, 0))
+        ttk.Label(tailscale_frame, text="tag:bivicom,tag:sss", 
+                 font=("Arial", 8), foreground="green").grid(row=2, column=1, columnspan=2, sticky=tk.W, pady=(2, 0))
+        
         # Control buttons frame
         control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        control_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Start/Stop button
         self.start_button = ttk.Button(control_frame, text="Start Bot", 
@@ -128,7 +164,7 @@ class RadarBotGUI:
         
         # Log display
         log_frame = ttk.LabelFrame(main_frame, text="Log Output", padding="5")
-        log_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -146,11 +182,11 @@ class RadarBotGUI:
         
         # Progress bar
         self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        self.progress.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # Bottom info frame
         info_frame = ttk.Frame(main_frame)
-        info_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        info_frame.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # Cycle count
         self.cycle_label = ttk.Label(info_frame, text="Cycles: 0")
@@ -232,6 +268,18 @@ class RadarBotGUI:
     def run_bot(self):
         """Run the bot (called in separate thread)"""
         try:
+            # Set final IP from GUI input
+            final_ip = self.final_ip_var.get().strip()
+            if not final_ip:
+                final_ip = "192.168.1.1"  # Default if empty
+            os.environ["FINAL_IP"] = final_ip
+            
+            # Set Tailscale auth key from GUI input
+            tailscale_auth = self.tailscale_auth_var.get().strip()
+            if not tailscale_auth or tailscale_auth == "YOUR_TAILSCALE_AUTH_KEY_HERE":
+                tailscale_auth = "YOUR_TAILSCALE_AUTH_KEY_HERE"  # Default if empty or placeholder
+            os.environ["TAILSCALE_AUTH_KEY"] = tailscale_auth
+            
             # Use fixed configuration mode (previously called "forward")
             mode = "forward"
             operation_mode = self.mode_var.get()

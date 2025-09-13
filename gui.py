@@ -186,7 +186,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "update-nodered-auth": {
                     "name": "Update Node-RED Authentication",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", "L@ranet2025"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", self.password],
                     "timeout": 60
                 },
                 "install-tailscale": {
@@ -201,7 +201,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "set-password": {
                     "name": "Change Device Password",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", "L@ranet2025"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", self.password],
                     "timeout": 60
                 }
             }
@@ -481,10 +481,10 @@ class NetworkBotGUI:
             ("install-services", "Install All Docker Services (Node-RED, Portainer, Restreamer)", ["install-docker"]),
             ("install-nodered-nodes", "Install Node-RED Nodes (ffmpeg, queue-gate, sqlite, serialport)", ["install-services"]),
             ("import-nodered-flows", "Import Node-RED Flows", ["install-services"]),
-            ("update-nodered-auth", "Update Node-RED Authentication (L@ranet2025)", ["install-services"]),
+            ("update-nodered-auth", "Update Node-RED Authentication (uses GUI password)", ["install-services"]),
             ("install-tailscale", "Install Tailscale VPN Router", ["install-docker"]),
             ("reverse", "Configure Network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)", []),
-            ("set-password", "Change Device Password (L@ranet2025)", [])
+            ("set-password", "Change Device Password (uses GUI password)", [])
         ]
         
         for i, (command, description, dependencies) in enumerate(self.function_descriptions):

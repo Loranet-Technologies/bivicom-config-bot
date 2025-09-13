@@ -145,7 +145,7 @@ class NetworkBot:
                 },
                 {
                     "name": "8. Update Node-RED Authentication",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", "L@ranet2025"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", self.password],
                     "timeout": 60
                 },
                 {
@@ -160,7 +160,7 @@ class NetworkBot:
                 },
                 {
                     "name": "11. Change Device Password",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", "L@ranet2025"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", self.password],
                     "timeout": 60
                 }
             ]
@@ -297,10 +297,10 @@ def main():
     print("5. Install All Docker Services (Node-RED, Portainer, Restreamer)")
     print("6. Install Node-RED Nodes")
     print("7. Import Node-RED Flows")
-    print("8. Update Node-RED Authentication (L@ranet2025)")
+    print("8. Update Node-RED Authentication (uses configured password)")
     print("9. Install Tailscale VPN Router")
     print("10. Configure Network REVERSE")
-    print("11. Change Device Password (L@ranet2025)")
+    print("11. Change Device Password (uses configured password)")
     print()
     
     # Create and run the bot

@@ -167,7 +167,7 @@ class NetworkBot:
             
             # Execute each command in sequence
             for i, command in enumerate(commands, 1):
-                print(f"[{self._get_timestamp()}] 📋 Step {i}/11: {command['name']}")
+                print(f"[{self._get_timestamp()}] 📋 Step {i}/{len(commands)}: {command['name']}")
                 print(f"[{self._get_timestamp()}] 🔧 Running: {' '.join(command['cmd'])}")
                 
                 try:

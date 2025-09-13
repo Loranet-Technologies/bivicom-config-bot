@@ -1684,24 +1684,125 @@ install_nodered_nodes() {
         return 1
     fi
     
-    # Define the nodes to install
-    local nodes=(
-        "node-red-contrib-ffmpeg@~0.1.1"
-        "node-red-contrib-queue-gate@~1.5.5"
-        "node-red-node-sqlite@~1.1.0"
-        "node-red-node-serialport@2.0.3"
-    )
+    # Determine package.json source based on parameter or auto-detect
+    local flows_source_type="${FLOWS_SOURCE:-auto}"
+    local package_file=""
+    local package_source=""
     
-    # Install each node
-    for node in "${nodes[@]}"; do
-        print_status "Installing Node-RED node: $node"
-        if execute_command "sudo docker exec nodered npm install $node" "Install $node"; then
-            print_success "Successfully installed $node"
+    if [ "$flows_source_type" = "github" ]; then
+        # Force GitHub download
+        print_status "Forcing GitHub download for package.json..."
+        if download_package_from_github; then
+            package_file="/tmp/package.json"
+            package_source="GitHub download (forced)"
         else
-            print_error "Failed to install $node"
+            print_error "Failed to download package.json from GitHub"
             return 1
         fi
-    done
+    elif [ "$flows_source_type" = "local" ]; then
+        # Force local file search
+        print_status "Searching for local package.json files..."
+        if [ -f "./nodered_flows_backup/package.json" ]; then
+            package_file="./nodered_flows_backup/package.json"
+            package_source="local directory (forced)"
+        elif [ -f "../nodered_flows_backup/package.json" ]; then
+            package_file="../nodered_flows_backup/package.json"
+            package_source="parent directory (forced)"
+        elif [ -f "$(dirname "$0")/nodered_flows_backup/package.json" ]; then
+            package_file="$(dirname "$0")/nodered_flows_backup/package.json"
+            package_source="script directory (forced)"
+        elif [ -f "$HOME/nodered_flows_backup/package.json" ]; then
+            package_file="$HOME/nodered_flows_backup/package.json"
+            package_source="home directory (forced)"
+        else
+            print_error "No local package.json found in any of these locations:"
+            print_error "  - ./nodered_flows_backup/package.json"
+            print_error "  - ../nodered_flows_backup/package.json"
+            print_error "  - ~/nodered_flows_backup/package.json"
+            return 1
+        fi
+    else
+        # Auto-detect (default behavior)
+        print_status "Auto-detecting package.json source..."
+        if [ -f "./nodered_flows_backup/package.json" ]; then
+            package_file="./nodered_flows_backup/package.json"
+            package_source="local directory (auto-detected)"
+        elif [ -f "../nodered_flows_backup/package.json" ]; then
+            package_file="../nodered_flows_backup/package.json"
+            package_source="parent directory (auto-detected)"
+        elif [ -f "$(dirname "$0")/nodered_flows_backup/package.json" ]; then
+            package_file="$(dirname "$0")/nodered_flows_backup/package.json"
+            package_source="script directory (auto-detected)"
+        elif [ -f "$HOME/nodered_flows_backup/package.json" ]; then
+            package_file="$HOME/nodered_flows_backup/package.json"
+            package_source="home directory (auto-detected)"
+        else
+            print_status "No local package.json found, downloading from GitHub..."
+            if download_package_from_github; then
+                package_file="/tmp/package.json"
+                package_source="GitHub download (auto-detected)"
+            else
+                print_warning "Failed to download package.json from GitHub, using default nodes"
+                package_file=""
+                package_source="default hardcoded"
+            fi
+        fi
+    fi
+    
+    if [ -n "$package_file" ] && [ "$package_source" != "default hardcoded" ]; then
+        print_status "Found package.json: $package_file (source: $package_source)"
+        
+        # Copy package.json to the remote system (if not already downloaded)
+        if [ "$package_source" != "GitHub download" ]; then
+            print_status "Copying package.json to remote system..."
+            if copy_to_remote "$package_file" "/tmp/package.json" "Copy package.json"; then
+                print_success "package.json copied successfully"
+            else
+                print_error "Failed to copy package.json"
+                return 1
+            fi
+        fi
+        
+        # Copy package.json to Node-RED container
+        print_status "Copying package.json to Node-RED container..."
+        if execute_command "sudo docker cp /tmp/package.json nodered:/data/package.json" "Copy package.json to container"; then
+            print_success "package.json copied to Node-RED container"
+        else
+            print_error "Failed to copy package.json to Node-RED container"
+            return 1
+        fi
+        
+        # Install nodes from package.json
+        print_status "Installing Node-RED nodes from package.json..."
+        if execute_command "sudo docker exec -w /data nodered npm install --production" "Install nodes from package.json"; then
+            print_success "Node-RED nodes installed from package.json successfully"
+        else
+            print_error "Failed to install nodes from package.json"
+            return 1
+        fi
+    else
+        # Fallback to hardcoded nodes
+        print_status "Using default hardcoded Node-RED nodes..."
+        
+        # Define the nodes to install (fallback)
+        local nodes=(
+            "node-red-contrib-ffmpeg@~0.1.1"
+            "node-red-contrib-queue-gate@~1.5.5"
+            "node-red-node-sqlite@~1.1.0"
+            "node-red-node-serialport@2.0.3"
+        )
+        
+        # Install each node
+        for node in "${nodes[@]}"; do
+            print_status "Installing Node-RED node: $node"
+            if execute_command "sudo docker exec nodered npm install $node" "Install $node"; then
+                print_success "Successfully installed $node"
+            else
+                print_error "Failed to install $node"
+                return 1
+            fi
+        done
+    fi
     
     # Restart Node-RED container to load new nodes
     print_status "Restarting Node-RED container to load new nodes..."
@@ -1765,6 +1866,38 @@ download_flows_from_github() {
     fi
     
     print_success "GitHub download completed"
+    return 0
+}
+
+# Function to download package.json from GitHub
+download_package_from_github() {
+    print_status "Downloading package.json from GitHub..."
+    
+    # GitHub URL for package.json (you can customize this)
+    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/package.json"
+    
+    # Check if curl is available
+    if ! command -v curl >/dev/null 2>&1; then
+        print_error "curl is not installed. Cannot download from GitHub."
+        return 1
+    fi
+    
+    # Download package.json
+    print_status "Downloading package.json from GitHub..."
+    if execute_command "curl -s -L -o /tmp/package.json '$github_package_url'" "Download package.json"; then
+        print_success "package.json downloaded successfully"
+    else
+        print_error "Failed to download package.json from GitHub"
+        return 1
+    fi
+    
+    # Verify the downloaded file
+    if [ ! -f "/tmp/package.json" ] || [ ! -s "/tmp/package.json" ]; then
+        print_error "Downloaded package.json is empty or missing"
+        return 1
+    fi
+    
+    print_success "package.json GitHub download completed"
     return 0
 }
 
@@ -2349,7 +2482,7 @@ show_help() {
     echo "  install-portainer   Install Portainer with Docker Compose"
     echo "  install-restreamer  Install Restreamer with Docker Compose (hardware privileges)"
     echo "  install-services    Install all Docker services (Node-RED, Portainer, Restreamer)"
-    echo "  install-nodered-nodes Install Node-RED nodes (ffmpeg, queue-gate, sqlite, serialport)"
+    echo "  install-nodered-nodes [SOURCE] Install Node-RED nodes from package.json (auto|local|github)"
     echo "  import-nodered-flows [SOURCE] Import Node-RED flows (auto|local|github)"
     echo "  update-nodered-auth [PASSWORD] Update Node-RED authentication with custom password"
     echo "  install-tailscale   Install Tailscale VPN router in Docker"
@@ -2369,7 +2502,9 @@ show_help() {
     echo "  $0 forward-and-docker         # Configure network and install Docker locally"
     echo "  $0 add-user-to-docker         # Add user to docker group locally"
     echo "  $0 install-services           # Install all Docker services locally"
-    echo "  $0 install-nodered-nodes      # Install Node-RED nodes locally"
+    echo "  $0 install-nodered-nodes      # Install Node-RED nodes (auto-detect package.json)"
+    echo "  $0 install-nodered-nodes local # Install Node-RED nodes from local package.json"
+    echo "  $0 install-nodered-nodes github # Install Node-RED nodes from GitHub package.json"
     echo "  $0 import-nodered-flows       # Import Node-RED flows (auto-detect source)"
     echo "  $0 import-nodered-flows local # Import Node-RED flows from local files"
     echo "  $0 import-nodered-flows github # Import Node-RED flows from GitHub"
@@ -2464,7 +2599,13 @@ main() {
                 ;;
             install-nodered-nodes)
                 command="install-nodered-nodes"
-                shift
+                # Check if flows source is provided as next argument
+                if [[ $# -gt 0 && $2 =~ ^(auto|local|github)$ ]]; then
+                    FLOWS_SOURCE="$2"
+                    shift 2
+                else
+                    shift
+                fi
                 ;;
             import-nodered-flows)
                 command="import-nodered-flows"

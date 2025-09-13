@@ -203,7 +203,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "install-nodered-nodes": {
                     "name": "Install Node-RED Nodes",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes", self.flows_source],
                     "timeout": 180
                 },
                 "import-nodered-flows": {

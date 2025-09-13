@@ -61,12 +61,24 @@ def play_sound(sound_type="success"):
 class GUIBotWrapper(NetworkBot):
     """Wrapper for NetworkBot that integrates with GUI logging"""
     
-    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin"):
-        super().__init__(target_ip, scan_interval)
-        self.gui_log_callback = gui_log_callback
-        self.step_progress_callback = step_progress_callback
+    def __init__(self, gui_log_callback, target_ip="192.168.1.1", scan_interval=10, step_progress_callback=None, username="admin", password="admin", step_highlight_callback=None):
+        # Initialize parent class but skip logging setup for GUI mode
+        self.target_ip = target_ip
+        self.scan_interval = scan_interval
+        self.running = True
+        self.verbose = False
+        self.script_path = os.path.join(os.path.dirname(__file__), "network_config.sh")
         self.username = username
         self.password = password
+        
+        # Set up signal handlers (but not logging)
+        signal.signal(signal.SIGINT, self._signal_handler)
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        
+        # GUI-specific attributes
+        self.gui_log_callback = gui_log_callback
+        self.step_progress_callback = step_progress_callback
+        self.step_highlight_callback = step_highlight_callback
         self.running = False
     
     def _get_timestamp(self):
@@ -124,89 +136,196 @@ class GUIBotWrapper(NetworkBot):
     def run_network_config(self):
         """Override the network configuration to track step progress"""
         try:
-            self.log_message("🚀 Starting complete network configuration sequence...", "SUCCESS")
+            # Get selected functions from GUI (we need to access the main GUI instance)
+            # This will be set by the GUI when creating the bot
+            selected_functions = getattr(self, 'selected_functions', [])
             
-            # Define the sequence of commands to run
-            commands = [
-                {
-                    "name": "1. Configure Network FORWARD",
+            if not selected_functions:
+                self.log_message("❌ No functions selected! Please select functions to run.", "ERROR")
+                return False
+            
+            self.log_message(f"🚀 Starting configuration with {len(selected_functions)} selected functions...", "SUCCESS")
+            self.log_message(f"📋 Selected functions: {', '.join(selected_functions)}", "INFO")
+            
+            # Define command templates (built dynamically with current values)
+            command_templates = {
+                "forward": {
+                    "name": "Configure Network FORWARD",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "forward"],
                     "timeout": 60
                 },
-                {
-                    "name": "2. Check DNS Connectivity", 
-                    "cmd": [self.script_path, "check-dns"],
+                "check-dns": {
+                    "name": "Check DNS Connectivity", 
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "check-dns"],
                     "timeout": 30
                 },
-                {
-                    "name": "3. Install Docker (after network config)",
+                "fix-dns": {
+                    "name": "Fix DNS Configuration",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "fix-dns"],
+                    "timeout": 60
+                },
+                "install-docker": {
+                    "name": "Install Docker",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-docker"],
                     "timeout": 300
                 },
-                {
-                    "name": "4. Install All Docker Services",
+                "install-services": {
+                    "name": "Install All Docker Services",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-services"],
                     "timeout": 300
                 },
-                {
-                    "name": "5. Install Node-RED Nodes",
+                "install-nodered-nodes": {
+                    "name": "Install Node-RED Nodes",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes"],
                     "timeout": 180
                 },
-                {
-                    "name": "6. Import Node-RED Flows",
+                "import-nodered-flows": {
+                    "name": "Import Node-RED Flows",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows"],
                     "timeout": 120
                 },
-                {
-                    "name": "7. Install Tailscale VPN Router",
+                "update-nodered-auth": {
+                    "name": "Update Node-RED Authentication",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", "L@ranet2025"],
+                    "timeout": 60
+                },
+                "install-tailscale": {
+                    "name": "Install Tailscale VPN Router",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale"],
                     "timeout": 180
                 },
-                {
-                    "name": "8. Configure Network REVERSE",
+                "reverse": {
+                    "name": "Configure Network REVERSE",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
                     "timeout": 60
+                },
+                "set-password": {
+                    "name": "Change Device Password",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", "L@ranet2025"],
+                    "timeout": 60
                 }
-            ]
+            }
+            
+            # Debug: Log the script path and target info
+            self.log_message(f"🔧 Script path: {self.script_path}", "DEBUG")
+            self.log_message(f"🔧 Target IP: {self.target_ip}", "DEBUG")
+            self.log_message(f"🔧 Username: {self.username}", "DEBUG")
+            self.log_message(f"🔧 Password: {self.password}", "DEBUG")
+            
+            # Build commands list from selected functions
+            commands = []
+            for i, func in enumerate(selected_functions):
+                if func in command_templates:
+                    cmd = command_templates[func].copy()
+                    cmd["name"] = f"{i+1}. {cmd['name']}"
+                    # Debug: Log the command being built
+                    self.log_message(f"🔧 Building command for {func}: {cmd['cmd']}", "DEBUG")
+                    commands.append(cmd)
+                else:
+                    self.log_message(f"⚠️ Unknown function: {func}", "WARNING")
             
             # Execute each command in sequence
             for i, command in enumerate(commands, 1):
-                self.log_message(f"📋 Step {i}/8: {command['name']}", "INFO")
+                self.log_message(f"📋 Step {i}/{len(commands)}: {command['name']}", "INFO")
                 self.log_message(f"🔧 Running: {' '.join(command['cmd'])}", "INFO")
                 
+                # Highlight current step in GUI
+                if self.step_highlight_callback:
+                    self.step_highlight_callback(i)
+                
                 try:
-                    result = subprocess.run(
+                    # Run command with real-time output streaming
+                    self.log_message(f"🚀 Starting command execution...", "INFO")
+                    
+                    process = subprocess.Popen(
                         command['cmd'], 
-                        capture_output=True, 
+                        stdout=subprocess.PIPE, 
+                        stderr=subprocess.STDOUT,  # Merge stderr into stdout
                         text=True, 
-                        timeout=command['timeout']
+                        bufsize=1,  # Line buffered
+                        universal_newlines=True
                     )
                     
-                    if result.returncode == 0:
+                    # Stream output in real-time with timeout handling
+                    output_lines = []
+                    import select
+                    import sys
+                    
+                    # Use select for timeout handling (Unix/macOS)
+                    if hasattr(select, 'select'):
+                        while True:
+                            # Check if process is still running
+                            if process.poll() is not None:
+                                # Process finished, read any remaining output
+                                remaining_output = process.stdout.read()
+                                if remaining_output:
+                                    for line in remaining_output.splitlines():
+                                        if line.strip():
+                                            self.log_message(f"📄 {line.strip()}", "INFO")
+                                            print(f"[SCRIPT OUTPUT] {line.strip()}")
+                                break
+                            
+                            # Check for output with timeout
+                            ready, _, _ = select.select([process.stdout], [], [], 1.0)  # 1 second timeout
+                            if ready:
+                                output = process.stdout.readline()
+                                if output:
+                                    output_line = output.strip()
+                                    if output_line:  # Only log non-empty lines
+                                        self.log_message(f"📄 {output_line}", "INFO")
+                                        output_lines.append(output_line)
+                                        # Also print to Python terminal
+                                        print(f"[SCRIPT OUTPUT] {output_line}")
+                            else:
+                                # Timeout - check if we should continue waiting
+                                # This allows for long-running commands while still being responsive
+                                pass
+                    else:
+                        # Fallback for Windows (no select module)
+                        while True:
+                            output = process.stdout.readline()
+                            if output == '' and process.poll() is not None:
+                                break
+                            if output:
+                                output_line = output.strip()
+                                if output_line:  # Only log non-empty lines
+                                    self.log_message(f"📄 {output_line}", "INFO")
+                                    output_lines.append(output_line)
+                                    # Also print to Python terminal
+                                    print(f"[SCRIPT OUTPUT] {output_line}")
+                    
+                    # Wait for process to complete and get return code
+                    return_code = process.wait()
+                    
+                    if return_code == 0:
                         self.log_message(f"✅ Step {i} completed successfully!", "SUCCESS")
-                        if result.stdout.strip():
-                            self.log_message(f"📄 Output: {result.stdout.strip()[:200]}...", "INFO")
                         
                         # Update GUI step progress
                         if self.step_progress_callback:
                             self.step_progress_callback(i, True)
                     else:
-                        self.log_message(f"❌ Step {i} failed!", "ERROR")
-                        self.log_message(f"📄 Error: {result.stderr.strip()[:200]}...", "ERROR")
+                        self.log_message(f"❌ Step {i} failed with return code {return_code}!", "ERROR")
                         
                         # Update GUI step progress (failed)
                         if self.step_progress_callback:
                             self.step_progress_callback(i, False)
                         return False
                         
-                except subprocess.TimeoutExpired:
-                    self.log_message(f"⏰ Step {i} timed out after {command['timeout']} seconds", "ERROR")
-                    if self.step_progress_callback:
-                        self.step_progress_callback(i, False)
-                    return False
                 except Exception as e:
-                    self.log_message(f"❌ Step {i} error: {e}", "ERROR")
+                    # Handle any other errors (including timeout if we implement it)
+                    if "timeout" in str(e).lower():
+                        self.log_message(f"⏰ Step {i} timed out after {command['timeout']} seconds", "ERROR")
+                    else:
+                        self.log_message(f"❌ Step {i} error: {e}", "ERROR")
+                    
+                    # Kill the process if it's still running
+                    if 'process' in locals() and process.poll() is None:
+                        process.terminate()
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                    
                     if self.step_progress_callback:
                         self.step_progress_callback(i, False)
                     return False
@@ -250,7 +369,7 @@ class NetworkBotGUI:
         self.scan_count = 0
         self.config_count = 0
         self.current_step = 0
-        self.total_steps = 8
+        self.total_steps = 11
         self.script_path = os.path.join(os.path.dirname(__file__), "network_config.sh")
         
         # Create GUI elements
@@ -272,20 +391,31 @@ class NetworkBotGUI:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        # Configure grid weights
+        # Configure grid weights for left-right layout
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(5, weight=1)
+        main_frame.columnconfigure(0, weight=1)  # Left column (log)
+        main_frame.columnconfigure(1, weight=1)  # Right column (controls)
+        main_frame.rowconfigure(0, weight=1)
         
-        # Title
-        title_label = ttk.Label(main_frame, text="Bivicom Network Bot", 
+        # Create left and right frames
+        left_frame = ttk.Frame(main_frame)
+        left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
+        left_frame.columnconfigure(0, weight=1)
+        left_frame.rowconfigure(0, weight=1)
+        
+        right_frame = ttk.Frame(main_frame)
+        right_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        right_frame.columnconfigure(0, weight=1)
+        
+        # Title for right panel
+        title_label = ttk.Label(right_frame, text="Bivicom Network Bot", 
                                font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        title_label.grid(row=0, column=0, pady=(0, 20))
         
         # Target IP configuration frame
-        ip_frame = ttk.LabelFrame(main_frame, text="Target Device Configuration", padding="5")
-        ip_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        ip_frame = ttk.LabelFrame(right_frame, text="Target Device Configuration", padding="5")
+        ip_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         ttk.Label(ip_frame, text="Target IP:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.target_ip_var = tk.StringVar(value="192.168.1.1")
@@ -328,47 +458,125 @@ class NetworkBotGUI:
         ttk.Label(ip_frame, text="(Default: 10 seconds)", 
                  font=("Arial", 8), foreground="gray").grid(row=3, column=2, sticky=tk.W, pady=(5, 0))
         
-        # Configuration sequence progress frame
-        sequence_frame = ttk.LabelFrame(main_frame, text="8-Step Configuration Progress", padding="5")
-        sequence_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        # Function selection frame
+        selection_frame = ttk.LabelFrame(right_frame, text="Function Selection", padding="5")
+        selection_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        # Create step checkboxes
-        self.step_vars = []
-        self.step_labels = []
-        self.step_descriptions = [
-            "Configure Network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)",
-            "Check DNS Connectivity",
-            "Install Docker (after network config)",
-            "Install All Docker Services (Node-RED, Portainer, Restreamer)",
-            "Install Node-RED Nodes (ffmpeg, queue-gate, sqlite, serialport)",
-            "Import Node-RED Flows",
-            "Install Tailscale VPN Router",
-            "Configure Network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)"
+        # Select All/None buttons
+        button_frame = ttk.Frame(selection_frame)
+        button_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        ttk.Button(button_frame, text="Select All", command=self.select_all_functions).grid(row=0, column=0, padx=(0, 10))
+        ttk.Button(button_frame, text="Select None", command=self.select_none_functions).grid(row=0, column=1, padx=(0, 10))
+        ttk.Button(button_frame, text="Quick Setup", command=self.select_quick_setup).grid(row=0, column=2, padx=(0, 10))
+        
+        # Create function selection checkboxes with dependencies
+        self.function_vars = []
+        self.function_labels = []
+        self.function_descriptions = [
+            ("forward", "Configure Network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)", []),
+            ("check-dns", "Check DNS Connectivity", []),
+            ("fix-dns", "Fix DNS Configuration (add Google DNS)", []),
+            ("install-docker", "Install Docker (after network config)", ["forward"]),
+            ("install-services", "Install All Docker Services (Node-RED, Portainer, Restreamer)", ["install-docker"]),
+            ("install-nodered-nodes", "Install Node-RED Nodes (ffmpeg, queue-gate, sqlite, serialport)", ["install-services"]),
+            ("import-nodered-flows", "Import Node-RED Flows", ["install-services"]),
+            ("update-nodered-auth", "Update Node-RED Authentication (L@ranet2025)", ["install-services"]),
+            ("install-tailscale", "Install Tailscale VPN Router", ["install-docker"]),
+            ("reverse", "Configure Network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)", []),
+            ("set-password", "Change Device Password (L@ranet2025)", [])
         ]
         
-        for i, description in enumerate(self.step_descriptions):
+        for i, (command, description, dependencies) in enumerate(self.function_descriptions):
             # Create checkbox variable
             var = tk.BooleanVar()
-            self.step_vars.append(var)
+            self.function_vars.append((var, command, dependencies))
             
             # Create checkbox
-            checkbox = ttk.Checkbutton(sequence_frame, variable=var, state="disabled")
-            checkbox.grid(row=i, column=0, sticky=tk.W, padx=(0, 10), pady=2)
+            checkbox = ttk.Checkbutton(selection_frame, variable=var, 
+                                     command=self.update_selected_functions)
+            checkbox.grid(row=i+1, column=0, sticky=tk.W, padx=(0, 10), pady=2)
             
             # Create label
-            label = ttk.Label(sequence_frame, text=f"{i+1}. {description}", 
-                             font=("Arial", 9), foreground="gray")
-            label.grid(row=i, column=1, sticky=tk.W, pady=2)
-            self.step_labels.append(label)
+            label = ttk.Label(selection_frame, text=f"{i+1}. {description}", 
+                             font=("Arial", 9))
+            label.grid(row=i+1, column=1, sticky=tk.W, pady=2)
+            self.function_labels.append(label)
+        
+        # Selected functions summary
+        self.selected_summary = ttk.Label(selection_frame, text="Selected: 0 functions", 
+                                         font=("Arial", 10, "bold"), foreground="blue")
+        self.selected_summary.grid(row=12, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        
+        # Configuration sequence progress frame
+        sequence_frame = ttk.LabelFrame(right_frame, text="Execution Progress", padding="5")
+        sequence_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Progress summary
-        self.progress_summary = ttk.Label(sequence_frame, text="Progress: 0/8 steps completed", 
+        self.progress_summary = ttk.Label(sequence_frame, text="Ready to execute selected functions", 
                                          font=("Arial", 10, "bold"), foreground="blue")
-        self.progress_summary.grid(row=8, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        self.progress_summary.grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
+        
+        # Step progress indicators
+        self.step_indicators = []
+        self.step_labels = []
+        
+        # Create step indicators for each possible function
+        step_descriptions = [
+            "Configure Network FORWARD",
+            "Check DNS Connectivity", 
+            "Fix DNS Configuration",
+            "Install Docker",
+            "Install All Docker Services",
+            "Install Node-RED Nodes",
+            "Import Node-RED Flows",
+            "Update Node-RED Authentication",
+            "Install Tailscale VPN Router",
+            "Configure Network REVERSE",
+            "Change Device Password"
+        ]
+        
+        # Create a scrollable frame for step indicators
+        canvas = tk.Canvas(sequence_frame, height=150, bg="white")
+        scrollbar = ttk.Scrollbar(sequence_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Create step indicators
+        for i, description in enumerate(step_descriptions):
+            # Create frame for each step
+            step_frame = ttk.Frame(scrollable_frame)
+            step_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=2)
+            
+            # Status indicator (circle/checkmark)
+            status_label = ttk.Label(step_frame, text="○", font=("Arial", 12), foreground="gray")
+            status_label.grid(row=0, column=0, padx=(0, 10))
+            self.step_indicators.append(status_label)
+            
+            # Step description
+            step_label = ttk.Label(step_frame, text=f"{i+1}. {description}", 
+                                 font=("Arial", 9), foreground="gray")
+            step_label.grid(row=0, column=1, sticky=tk.W)
+            self.step_labels.append(step_label)
+        
+        # Place canvas and scrollbar
+        canvas.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 5))
+        scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S), pady=(0, 5))
+        
+        # Configure grid weights for scrolling
+        sequence_frame.rowconfigure(1, weight=1)
+        sequence_frame.columnconfigure(0, weight=1)
         
         # Tailscale Auth Key configuration frame
-        tailscale_frame = ttk.LabelFrame(main_frame, text="Tailscale Configuration", padding="5")
-        tailscale_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        tailscale_frame = ttk.LabelFrame(right_frame, text="Tailscale Configuration", padding="5")
+        tailscale_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         ttk.Label(tailscale_frame, text="Auth Key:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.tailscale_auth_var = tk.StringVar(value="tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC")
@@ -385,8 +593,8 @@ class NetworkBotGUI:
                  font=("Arial", 8), foreground="blue").grid(row=1, column=1, columnspan=2, sticky=tk.W, pady=(5, 0))
         
         # Control buttons frame
-        control_frame = ttk.Frame(main_frame)
-        control_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        control_frame = ttk.Frame(right_frame)
+        control_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Start/Stop button
         self.start_button = ttk.Button(control_frame, text="Start Bot", 
@@ -408,31 +616,31 @@ class NetworkBotGUI:
                                          font=("Arial", 9))
         self.scan_count_label.grid(row=0, column=3, padx=(20, 0))
         
-        # Log display
-        log_frame = ttk.LabelFrame(main_frame, text="Log Output", padding="5")
-        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Log display (moved to left frame)
+        log_frame = ttk.LabelFrame(left_frame, text="Log Output", padding="5")
+        log_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
         # Create scrolled text widget with custom tags for colors
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=25, width=100,
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=30, width=80,
                                                  font=("Consolas", 9), wrap=tk.WORD)
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        # Configure text tags for colored output (lighter colors)
-        self.log_text.tag_configure("INFO", foreground="#333333")
-        self.log_text.tag_configure("SUCCESS", foreground="#4CAF50", font=("Consolas", 9, "bold"))
-        self.log_text.tag_configure("WARNING", foreground="#FF9800", font=("Consolas", 9, "bold"))
-        self.log_text.tag_configure("ERROR", foreground="#F44336", font=("Consolas", 9, "bold"))
-        self.log_text.tag_configure("DEBUG", foreground="#9E9E9E")
+        # Configure text tags for colored output (more vibrant colors)
+        self.log_text.tag_configure("INFO", foreground="#2E7D32", font=("Consolas", 9))  # Dark green for info
+        self.log_text.tag_configure("SUCCESS", foreground="#00C853", font=("Consolas", 9, "bold"))  # Bright green for success
+        self.log_text.tag_configure("WARNING", foreground="#FF6F00", font=("Consolas", 9, "bold"))  # Orange for warnings
+        self.log_text.tag_configure("ERROR", foreground="#D32F2F", font=("Consolas", 9, "bold"))  # Red for errors
+        self.log_text.tag_configure("DEBUG", foreground="#616161", font=("Consolas", 8))  # Gray for debug
         
-        # Progress bar
-        self.progress = ttk.Progressbar(main_frame, mode='indeterminate')
-        self.progress.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        # Progress bar (moved to right frame)
+        self.progress = ttk.Progressbar(right_frame, mode='indeterminate')
+        self.progress.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        # Bottom info frame
-        info_frame = ttk.Frame(main_frame)
-        info_frame.grid(row=7, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        # Bottom info frame (moved to right frame)
+        info_frame = ttk.Frame(right_frame)
+        info_frame.grid(row=7, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
         
         # Configuration count
         self.config_count_label = ttk.Label(info_frame, text="Configurations: 0")
@@ -452,39 +660,108 @@ class NetworkBotGUI:
         else:
             self.password_entry.config(show="*")
     
-    def reset_step_progress(self):
-        """Reset all step checkboxes and progress"""
-        for var in self.step_vars:
+    def select_all_functions(self):
+        """Select all functions"""
+        for var, command, dependencies in self.function_vars:
+            var.set(True)
+        self.update_selected_functions()
+    
+    def select_none_functions(self):
+        """Select no functions"""
+        for var, command, dependencies in self.function_vars:
             var.set(False)
-        for label in self.step_labels:
-            label.config(foreground="gray")
-        self.current_step = 0
-        self.progress_summary.config(text="Progress: 0/8 steps completed", foreground="blue")
+        self.update_selected_functions()
+    
+    def select_quick_setup(self):
+        """Select essential functions for quick setup"""
+        # Reset all first
+        self.select_none_functions()
+        
+        # Select essential functions
+        essential_commands = ["forward", "install-docker", "install-services", "install-nodered-nodes", "import-nodered-flows", "update-nodered-auth", "reverse"]
+        for var, command, dependencies in self.function_vars:
+            if command in essential_commands:
+                var.set(True)
+        
+        self.update_selected_functions()
+    
+    def update_selected_functions(self):
+        """Update function selection and check dependencies"""
+        selected_count = 0
+        dependency_warnings = []
+        
+        # Check each selected function for dependencies
+        for var, command, dependencies in self.function_vars:
+            if var.get():
+                selected_count += 1
+                # Check if dependencies are met
+                for dep in dependencies:
+                    dep_var = next((v for v, c, d in self.function_vars if c == dep), None)
+                    if not dep_var or not dep_var.get():
+                        dependency_warnings.append(f"{command} requires {dep}")
+        
+        # Update summary
+        self.selected_summary.config(text=f"Selected: {selected_count} functions")
+        
+        # Show dependency warnings
+        if dependency_warnings:
+            warning_text = "⚠️ Dependencies: " + "; ".join(dependency_warnings)
+            self.selected_summary.config(text=f"Selected: {selected_count} functions - {warning_text}", foreground="orange")
+        else:
+            self.selected_summary.config(foreground="blue")
+    
+    def get_selected_functions(self):
+        """Get list of selected function commands in dependency order"""
+        # Create a mapping of command to index for ordering
+        command_order = {command: i for i, (command, _, _) in enumerate(self.function_descriptions)}
+        
+        # Get selected functions
+        selected = []
+        for var, command, dependencies in self.function_vars:
+            if var.get():
+                selected.append((command, command_order[command]))
+        
+        # Sort by original order
+        selected.sort(key=lambda x: x[1])
+        return [command for command, _ in selected]
     
     def update_step_progress(self, step_number, success=True):
         """Update step progress with visual feedback"""
-        if 1 <= step_number <= 8:
-            step_index = step_number - 1
-            self.step_vars[step_index].set(True)
-            
+        # Update progress summary
+        if success:
+            self.progress_summary.config(text=f"Step {step_number} completed successfully", foreground="green")
+            # Play success sound for completed steps
+            threading.Thread(target=lambda: play_sound("success"), daemon=True).start()
+        else:
+            self.progress_summary.config(text=f"Step {step_number} failed", foreground="red")
+            # Play error sound for failed steps
+            threading.Thread(target=lambda: play_sound("error"), daemon=True).start()
+        
+        # Update visual step indicators
+        if 0 <= step_number - 1 < len(self.step_indicators):
             if success:
-                self.step_labels[step_index].config(foreground="green")
-                self.current_step = step_number
-                # Play success sound for completed steps
-                threading.Thread(target=lambda: play_sound("success"), daemon=True).start()
+                # Show checkmark for completed step
+                self.step_indicators[step_number - 1].config(text="✓", foreground="green", font=("Arial", 14, "bold"))
+                self.step_labels[step_number - 1].config(foreground="green")
             else:
-                self.step_labels[step_index].config(foreground="red")
-                # Play error sound for failed steps
-                threading.Thread(target=lambda: play_sound("error"), daemon=True).start()
-            
-            # Update progress summary
-            completed = sum(1 for var in self.step_vars if var.get())
-            self.progress_summary.config(text=f"Progress: {completed}/8 steps completed")
-            
-            if completed == 8:
-                self.progress_summary.config(foreground="green", text="Progress: 8/8 steps completed - SUCCESS!")
-            elif completed > 0:
-                self.progress_summary.config(foreground="orange")
+                # Show X for failed step
+                self.step_indicators[step_number - 1].config(text="✗", foreground="red", font=("Arial", 14, "bold"))
+                self.step_labels[step_number - 1].config(foreground="red")
+    
+    def reset_step_indicators(self):
+        """Reset all step indicators to default state"""
+        for i in range(len(self.step_indicators)):
+            self.step_indicators[i].config(text="○", foreground="gray", font=("Arial", 12))
+            self.step_labels[i].config(foreground="gray")
+    
+    def highlight_current_step(self, step_number):
+        """Highlight the current step being executed"""
+        if 0 <= step_number - 1 < len(self.step_indicators):
+            # Reset all indicators first
+            self.reset_step_indicators()
+            # Highlight current step
+            self.step_indicators[step_number - 1].config(text="●", foreground="blue", font=("Arial", 14, "bold"))
+            self.step_labels[step_number - 1].config(foreground="blue")
     
     def update_time(self):
         """Update the time display"""
@@ -507,8 +784,9 @@ class NetworkBotGUI:
             self.status_label.config(text="Status: Starting...")
             self.progress.start()
             
-            # Reset step progress
-            self.reset_step_progress()
+            # Reset progress summary and step indicators
+            self.progress_summary.config(text="Starting execution...", foreground="blue")
+            self.reset_step_indicators()
             
             # Get configuration from GUI
             target_ip = self.target_ip_var.get().strip() or "192.168.1.1"
@@ -517,7 +795,20 @@ class NetworkBotGUI:
             password = self.password_var.get().strip() or "admin"
             
             # Create bot instance with GUI logging integration
-            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password)
+            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step)
+            
+            # Set selected functions for the bot
+            selected_functions = self.get_selected_functions()
+            self.bot.selected_functions = selected_functions
+            
+            # Validate that functions are selected
+            if not selected_functions:
+                raise ValueError("No functions selected. Please select at least one function to run.")
+            
+            # Set Tailscale auth key from GUI input (do this in main thread)
+            tailscale_auth = self.tailscale_auth_var.get().strip()
+            if tailscale_auth and tailscale_auth != "YOUR_TAILSCALE_AUTH_KEY_HERE":
+                os.environ["TAILSCALE_AUTH_KEY"] = tailscale_auth
             
             # Start bot in separate thread
             self.bot_thread = threading.Thread(target=self.run_bot, daemon=True)
@@ -527,6 +818,7 @@ class NetworkBotGUI:
             
         except Exception as e:
             self.log_message(f"Failed to start bot: {e}", "ERROR")
+            self.log_message("Please check your function selections and try again", "INFO")
             self.is_running = False
             self.start_button.config(text="Start Bot", style="Accent.TButton")
             self.status_label.config(text="Status: Error")
@@ -580,41 +872,78 @@ class NetworkBotGUI:
             self.log_message(f"🎯 Target device: {target_ip}", "INFO")
             self.log_message(f"👤 Username: {username}", "INFO")
             
-            # Reset step progress
-            self.reset_step_progress()
+            # Reset progress summary
+            self.progress_summary.config(text="Starting device reset...", foreground="blue")
             
-            # Run reset command
+            # Run reset command with real-time output
             cmd = [self.script_path, "--remote", target_ip, username, password, "reset-device"]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+            self.log_message(f"🔧 Running reset command: {' '.join(cmd)}", "INFO")
             
-            if result.returncode == 0:
+            process = subprocess.Popen(
+                cmd, 
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT,  # Merge stderr into stdout
+                text=True, 
+                bufsize=1,  # Line buffered
+                universal_newlines=True
+            )
+            
+            # Stream output in real-time
+            output_lines = []
+            import select
+            
+            # Use select for timeout handling (Unix/macOS)
+            if hasattr(select, 'select'):
+                while True:
+                    # Check if process is still running
+                    if process.poll() is not None:
+                        # Process finished, read any remaining output
+                        remaining_output = process.stdout.read()
+                        if remaining_output:
+                            for line in remaining_output.splitlines():
+                                if line.strip():
+                                    self.log_message(f"📄 {line.strip()}", "INFO")
+                                    print(f"[RESET OUTPUT] {line.strip()}")
+                        break
+                    
+                    # Check for output with timeout
+                    ready, _, _ = select.select([process.stdout], [], [], 1.0)  # 1 second timeout
+                    if ready:
+                        output = process.stdout.readline()
+                        if output:
+                            output_line = output.strip()
+                            if output_line:  # Only log non-empty lines
+                                self.log_message(f"📄 {output_line}", "INFO")
+                                output_lines.append(output_line)
+                                # Also print to Python terminal
+                                print(f"[RESET OUTPUT] {output_line}")
+            else:
+                # Fallback for Windows (no select module)
+                while True:
+                    output = process.stdout.readline()
+                    if output == '' and process.poll() is not None:
+                        break
+                    if output:
+                        output_line = output.strip()
+                        if output_line:  # Only log non-empty lines
+                            self.log_message(f"📄 {output_line}", "INFO")
+                            output_lines.append(output_line)
+                            # Also print to Python terminal
+                            print(f"[RESET OUTPUT] {output_line}")
+            
+            # Wait for process to complete and get return code
+            return_code = process.wait()
+            
+            if return_code == 0:
                 self.log_message("✅ Device reset completed successfully!", "SUCCESS")
-                self.log_message("📄 Reset output:", "INFO")
-                for line in result.stdout.split('\n'):
-                    if line.strip():
-                        self.log_message(f"   {line.strip()}", "INFO")
-
                 # Show success notification
                 self.show_notification("Device Reset", "Device has been reset to default state successfully!")
             else:
-                self.log_message("❌ Device reset failed!", "ERROR")
-                self.log_message("📄 Error output:", "ERROR")
+                self.log_message(f"❌ Device reset failed with return code {return_code}!", "ERROR")
                 
-                # Show both stderr and stdout for better debugging
-                if result.stderr.strip():
-                    for line in result.stderr.split('\n'):
-                        if line.strip():
-                            self.log_message(f"   {line.strip()}", "ERROR")
-                
-                if result.stdout.strip():
-                    self.log_message("📄 Standard output:", "ERROR")
-                    for line in result.stdout.split('\n'):
-                        if line.strip():
-                            self.log_message(f"   {line.strip()}", "ERROR")
-
                 # Show error notification with more details
                 error_msg = "Device reset encountered errors."
-                if "uci: command not found" in result.stderr or "uci: command not found" in result.stdout:
+                if any("uci: command not found" in line for line in output_lines):
                     error_msg += "\n\nThis device may not be running OpenWrt or UCI is not installed."
                 self.show_notification("Device Reset Failed", error_msg)
                 
@@ -628,12 +957,7 @@ class NetworkBotGUI:
     def run_bot(self):
         """Run the bot (called in separate thread)"""
         try:
-            # Set Tailscale auth key from GUI input
-            tailscale_auth = self.tailscale_auth_var.get().strip()
-            if tailscale_auth and tailscale_auth != "YOUR_TAILSCALE_AUTH_KEY_HERE":
-                os.environ["TAILSCALE_AUTH_KEY"] = tailscale_auth
-            
-            self.log_message("Starting network bot with 8-step configuration sequence", "INFO")
+            self.log_message("Starting network bot with 11-step configuration sequence", "INFO")
             self.log_message("Bot will continuously scan for devices until stopped", "INFO")
             
             # Run the bot's scan and configure loop

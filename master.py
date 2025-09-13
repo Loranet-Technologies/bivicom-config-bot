@@ -41,6 +41,10 @@ class NetworkBot:
 
     def setup_logging(self):
         """Set up logging to file and console"""
+        # Only set up logging if not already configured
+        if hasattr(self, 'logger') and self.logger:
+            return
+            
         # Create logs directory if it doesn't exist
         log_dir = os.path.join(os.path.dirname(__file__), "logs")
         os.makedirs(log_dir, exist_ok=True)
@@ -49,17 +53,28 @@ class NetworkBot:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = os.path.join(log_dir, f"bivicom_bot_{timestamp}.log")
         
-        # Configure logging
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_file),
-                logging.StreamHandler(sys.stdout) if self.verbose else logging.NullHandler()
-            ]
-        )
+        # Get or create logger
+        self.logger = logging.getLogger(f"{__name__}_{id(self)}")
         
-        self.logger = logging.getLogger(__name__)
+        # Only add handlers if they don't exist
+        if not self.logger.handlers:
+            # Configure logging
+            self.logger.setLevel(logging.INFO)
+            
+            # Create formatter
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            
+            # Add file handler
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(formatter)
+            self.logger.addHandler(file_handler)
+            
+            # Add console handler if verbose
+            if self.verbose:
+                console_handler = logging.StreamHandler(sys.stdout)
+                console_handler.setFormatter(formatter)
+                self.logger.addHandler(console_handler)
+        
         self.logger.info(f"Logging initialized. Log file: {log_file}")
         print(f"[{self._get_timestamp()}] 📝 Logging to: {log_file}")
 
@@ -142,12 +157,17 @@ class NetworkBot:
                     "name": "10. Configure Network REVERSE",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
                     "timeout": 60
+                },
+                {
+                    "name": "11. Change Device Password",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", "L@ranet2025"],
+                    "timeout": 60
                 }
             ]
             
             # Execute each command in sequence
             for i, command in enumerate(commands, 1):
-                print(f"[{self._get_timestamp()}] 📋 Step {i}/10: {command['name']}")
+                print(f"[{self._get_timestamp()}] 📋 Step {i}/11: {command['name']}")
                 print(f"[{self._get_timestamp()}] 🔧 Running: {' '.join(command['cmd'])}")
                 
                 try:
@@ -267,7 +287,7 @@ def main():
     print("Bivicom Network Bot")
     print("==================")
     print(f"This bot continuously scans for {args.ip} and runs a complete")
-    print("10-step network configuration sequence when the device is found:")
+    print("11-step network configuration sequence when the device is found:")
     print()
     print("Sequence:")
     print("1. Configure Network FORWARD")
@@ -280,6 +300,7 @@ def main():
     print("8. Update Node-RED Authentication (L@ranet2025)")
     print("9. Install Tailscale VPN Router")
     print("10. Configure Network REVERSE")
+    print("11. Change Device Password (L@ranet2025)")
     print()
     
     # Create and run the bot

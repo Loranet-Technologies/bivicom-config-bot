@@ -4,6 +4,15 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ## 🆕 Recent Updates
 
+### v2.3 - Enhanced GUI with Visual Progress Indicators
+- **✅ Visual Step Indicators**: Real-time checkmarks and completion status for each process
+- **📊 Scrollable Progress Display**: Visual tracking of all 11 configuration steps
+- **🔄 Real-time Output Streaming**: Script output displayed in both GUI and Python terminal
+- **🎯 Step Highlighting**: Current step highlighted in blue, completed steps show green checkmarks
+- **❌ Error Visualization**: Failed steps clearly marked with red X indicators
+- **🔧 Improved Threading**: Fixed cross-thread GUI access issues
+- **📱 Enhanced User Experience**: Better visual feedback and progress tracking
+
 ### v2.2 - Enhanced Logging & Safe Cleanup
 - **📝 Comprehensive Logging**: Full command output logging to timestamped files
 - **🔍 Verbose Mode**: Real-time detailed output with `--verbose` flag
@@ -80,11 +89,14 @@ python3 gui.py
 
 # Features:
 # - Real-time log display with color-coded messages
-# - Step-by-step progress tracking (8-step configuration)
-# - Username/password configuration fields
+# - Visual step indicators with checkmarks and completion status
+# - Scrollable progress display for all 11 configuration steps
+# - Real-time script output streaming to both GUI and terminal
+# - Username/password configuration fields with show/hide toggle
 # - Sound notifications for success/error events
 # - System notifications for completion
 # - Reset device functionality
+# - Cross-platform compatibility (Windows, macOS, Linux)
 ```
 
 #### Manual Configuration Script
@@ -122,12 +134,15 @@ python3 gui.py
 
 ### 🖥️ GUI Application (`gui.py`)
 - **Real-time Logging**: Color-coded log messages with timestamps
-- **Progress Tracking**: Visual 8-step configuration progress with checkboxes
+- **Visual Step Indicators**: Real-time checkmarks (✓), failures (✗), and current step highlighting (●)
+- **Scrollable Progress Display**: Visual tracking of all 11 configuration steps
+- **Real-time Output Streaming**: Script output displayed in both GUI and Python terminal
 - **User Configuration**: Username/password input fields with show/hide toggle
 - **Sound Notifications**: Audio feedback for success/error events (cross-platform)
 - **System Notifications**: Desktop notifications for completion/errors
 - **Reset Functionality**: Complete device reset to default state
 - **Thread-safe**: Non-blocking UI with background operations
+- **Cross-platform**: Works on Windows, macOS, and Linux
 
 ### 🔧 Configuration Script (`network_config.sh`)
 - **Network Configuration**: FORWARD and REVERSE modes
@@ -141,7 +156,7 @@ python3 gui.py
 - **Safe Disk Cleanup**: Preserves Docker images while freeing space
 - **Device Reset**: Complete factory reset functionality
 
-### 🎯 10-Step Automated Sequence
+### 🎯 11-Step Automated Sequence
 
 When a device is detected, the bot automatically runs:
 
@@ -155,6 +170,7 @@ When a device is detected, the bot automatically runs:
 8. **Update Node-RED Authentication** - Set secure password (L@ranet2025)
 9. **Install Tailscale VPN Router** - Set up secure mesh networking
 10. **Configure Network REVERSE** - Switch to final LTE WAN configuration
+11. **Change Device Password** - Set secure device password (L@ranet2025)
 
 > **Note**: The cleanup-disk step has been removed from the automated sequence to preserve Docker images during deployment.
 
@@ -275,9 +291,9 @@ The script automatically installs these nodes:
 ### Project Structure
 ```
 bivicom-config-bot/
-├── master.py              # Network bot with comprehensive logging (290+ lines)
-├── network_config.sh      # Configuration script (2400+ lines)
-├── gui.py                 # GUI interface (legacy)
+├── master.py              # Network bot with comprehensive logging (312 lines)
+├── network_config.sh      # Configuration script (2508 lines)
+├── gui.py                 # Enhanced GUI with visual progress indicators (1000+ lines)
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Configuration file
 ├── logs/                  # Automatic log file directory
@@ -367,6 +383,27 @@ ls logs/
 # bivicom_bot_20250109_143022.log
 # bivicom_bot_20250109_150315.log
 ```
+
+### Visual Progress Indicators (GUI)
+
+The GUI application provides real-time visual feedback for each configuration step:
+
+#### Step Status Indicators
+- **○ Gray Circle**: Step not started (default state)
+- **● Blue Circle**: Step currently running (highlighted)
+- **✓ Green Checkmark**: Step completed successfully
+- **✗ Red X**: Step failed
+
+#### Real-time Output Streaming
+- **GUI Log Window**: Color-coded messages with timestamps
+- **Python Terminal**: Script output with `[SCRIPT OUTPUT]` prefix
+- **Dual Display**: See progress in both GUI and terminal simultaneously
+
+#### Progress Tracking
+- **Scrollable Display**: All 11 steps visible in a scrollable panel
+- **Current Step Highlighting**: Active step highlighted in blue
+- **Completion Status**: Immediate visual feedback when steps complete
+- **Error Visualization**: Failed steps clearly marked with red X
 
 ## 🔒 Security
 

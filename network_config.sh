@@ -371,6 +371,43 @@ configure_password_admin() {
     print_success "Password configuration completed"
 }
 
+# Function to configure custom password
+configure_password_custom() {
+    local new_password="$1"
+    
+    if [ -z "$new_password" ]; then
+        print_error "No password provided for custom password configuration"
+        return 1
+    fi
+    
+    print_status "Configuring password to: $new_password"
+    
+    # Set password using UCI
+    password_commands=(
+        "sudo uci set system.@system[0].password='$new_password'"
+        "sudo uci commit system"
+    )
+    
+    for cmd in "${password_commands[@]}"; do
+        print_status "Executing: $cmd"
+        if execute_command "$cmd" "Password configuration"; then
+            print_success "Command successful: $cmd"
+        else
+            print_warning "Command failed: $cmd"
+        fi
+    done
+    
+    # Alternative method using passwd command
+    print_status "Setting password using passwd command..."
+    if execute_command "echo -e '$new_password\n$new_password' | sudo passwd admin" "Set password via passwd"; then
+        print_success "Password set to $new_password via passwd command"
+    else
+        print_warning "Password setting via passwd failed, UCI method should work"
+    fi
+    
+    print_success "Custom password configuration completed"
+}
+
 # =============================================================================
 # USER MANAGEMENT FUNCTIONS
 # =============================================================================
@@ -1804,9 +1841,7 @@ install_tailscale_docker() {
 TS_AUTHKEY=tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC
 TS_STATE_DIR=/var/lib/tailscale
 TS_USERSPACE=false
-TS_ACCEPT_DNS=true
-TS_ROUTES=192.168.1.0/24,192.168.14.0/24
-TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24'
+TS_ACCEPT_DNS=true'
     
     # Write environment file
     if execute_command "echo '$tailscale_env' | sudo tee /data/tailscale/.env > /dev/null" "Create Tailscale environment file"; then
@@ -1823,10 +1858,181 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24'
         print_warning "Could not set Tailscale environment file permissions"
     fi
     
-    # Start Tailscale container
-    print_status "Starting Tailscale container with router configuration..."
-    if execute_command "sudo docker run -d --name tailscale --restart unless-stopped --env-file /data/tailscale/.env --cap-add=NET_ADMIN --cap-add=SYS_MODULE --device=/dev/net/tun --volume /data/tailscale:/var/lib/tailscale --network host tailscale/tailscale:latest" "Start Tailscale container"; then
-        print_success "Tailscale container started with router configuration"
+    # Create Docker Compose file for Tailscale
+    print_status "Creating Tailscale Docker Compose file..."
+    local tailscale_compose='version: "3.8"
+
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    restart: unless-stopped
+    env_file:
+      - .env
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun
+    volumes:
+      - ./:/var/lib/tailscale
+    network_mode: host
+
+networks:
+  default:
+    driver: bridge'
+    
+    # Write Docker Compose file
+    if execute_command "echo '$tailscale_compose' | sudo tee /data/tailscale/docker-compose.yml > /dev/null" "Create Tailscale compose file"; then
+        print_success "Tailscale Docker Compose file created"
+    else
+        print_error "Failed to create Tailscale Docker Compose file"
+        return 1
+    fi
+    
+    # Create README.md file
+    print_status "Creating Tailscale README documentation..."
+    local tailscale_readme='# Tailscale VPN Router Configuration
+
+This directory contains the configuration and data for the Tailscale VPN router container.
+
+## Files
+
+- `.env` - Environment configuration file
+- `docker-compose.yml` - Docker Compose configuration
+- `README.md` - This documentation file
+
+## Configuration
+
+### Environment Variables (.env)
+
+The `.env` file contains the following configuration options:
+
+```bash
+# Tailscale Environment Configuration
+TS_AUTHKEY=tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC
+TS_STATE_DIR=/var/lib/tailscale
+TS_USERSPACE=false
+TS_ACCEPT_DNS=true
+```
+
+### Adding Route Advertisement
+
+To advertise local network routes to other Tailscale devices, add these lines to your `.env` file:
+
+```bash
+# Add these lines to advertise local networks
+TS_ROUTES=192.168.1.0/24,192.168.14.0/24
+TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24
+```
+
+**Replace the network ranges with your actual local networks.**
+
+## Management Commands
+
+### Start Tailscale
+```bash
+cd /data/tailscale
+sudo docker-compose up -d
+```
+
+### Stop Tailscale
+```bash
+cd /data/tailscale
+sudo docker-compose down
+```
+
+### Restart Tailscale
+```bash
+cd /data/tailscale
+sudo docker-compose restart
+```
+
+### Check Status
+```bash
+sudo docker exec tailscale tailscale status
+```
+
+### View Logs
+```bash
+sudo docker-compose logs -f tailscale
+```
+
+### Manual Route Advertisement
+```bash
+# Advertise specific routes manually
+sudo docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24,192.168.14.0/24
+
+# Check advertised routes
+sudo docker exec tailscale tailscale status
+```
+
+## Network Configuration
+
+### Default Settings
+- **DNS**: Accepts Tailscale DNS servers
+- **User Space**: Disabled (kernel mode for better performance)
+- **Network Mode**: Host networking for full network access
+
+### Custom Networks
+To advertise different networks, modify the `TS_ROUTES` and `TS_EXTRA_ARGS` in the `.env` file:
+
+```bash
+# Example: Advertise multiple networks
+TS_ROUTES=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
+TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
+```
+
+## Troubleshooting
+
+### Container Not Starting
+1. Check if Docker is running: `sudo systemctl status docker`
+2. Check logs: `sudo docker-compose logs tailscale`
+3. Verify permissions: `ls -la /data/tailscale/`
+
+### Routes Not Advertised
+1. Verify routes in `.env` file
+2. Check Tailscale status: `sudo docker exec tailscale tailscale status`
+3. Restart container: `sudo docker-compose restart`
+
+### Authentication Issues
+1. Verify auth key in `.env` file
+2. Check Tailscale admin console
+3. Generate new auth key if needed
+
+## Security Notes
+
+- The auth key provides automatic authentication
+- Routes are only advertised to authenticated Tailscale devices
+- Use specific network ranges to limit exposure
+- Regularly rotate auth keys for security
+
+## Support
+
+For more information, visit:
+- [Tailscale Documentation](https://tailscale.com/kb/)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+'
+    
+    # Write README file
+    if execute_command "echo '$tailscale_readme' | sudo tee /data/tailscale/README.md > /dev/null" "Create Tailscale README"; then
+        print_success "Tailscale README documentation created"
+    else
+        print_error "Failed to create Tailscale README"
+        return 1
+    fi
+    
+    # Set proper permissions for all files
+    if execute_command "sudo chown -R admin:admin /data/tailscale" "Set Tailscale directory permissions"; then
+        print_success "Tailscale directory permissions set"
+    else
+        print_warning "Could not set Tailscale directory permissions"
+    fi
+    
+    # Start Tailscale container using Docker Compose
+    print_status "Starting Tailscale container with Docker Compose..."
+    if execute_command "cd /data/tailscale && sudo docker-compose up -d" "Start Tailscale container"; then
+        print_success "Tailscale container started with Docker Compose"
     else
         print_error "Failed to start Tailscale container"
         return 1
@@ -1853,6 +2059,12 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24'
     fi
     
     print_success "Tailscale installation completed"
+    print_info "Tailscale is now managed with Docker Compose in /data/tailscale/"
+    print_info "Documentation: /data/tailscale/README.md"
+    print_info "Note: Routes are not automatically advertised. Configure routes manually if needed:"
+    print_info "  - Edit /data/tailscale/.env to add TS_ROUTES and TS_EXTRA_ARGS"
+    print_info "  - Or use: docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24"
+    print_info "Management: cd /data/tailscale && sudo docker-compose [up|down|restart|logs]"
 }
 
 # =============================================================================
@@ -1986,8 +2198,12 @@ reset_device() {
     # Apply REVERSE configuration
     configure_network_settings_reverse
     
-    # Step 12: Restart network services
-    print_status "Step 12: Restarting network services..."
+    # Step 12: Perform aggressive disk cleanup
+    print_status "Step 12: Performing aggressive disk cleanup..."
+    aggressive_disk_cleanup
+    
+    # Step 13: Restart network services
+    print_status "Step 13: Restarting network services..."
     if execute_command "sudo /etc/init.d/network restart" "Restart network service"; then
         print_success "Network service restarted"
     fi
@@ -1999,6 +2215,7 @@ reset_device() {
     print_warning "- Password reset to admin/admin"
     print_warning "- IP address reset to 192.168.1.1"
     print_warning "- All custom configurations removed"
+    print_warning "- Aggressive disk cleanup performed (logs, cache, temp files)"
 }
 
 # Function to show help
@@ -2015,6 +2232,7 @@ show_help() {
     echo "  forward             Configure network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)"
     echo "  reverse             Configure network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)"
     echo "  set-password-admin  Change password back to admin"
+    echo "  set-password PASSWORD  Change password to custom value"
     echo "  install-docker      Install Docker container engine (requires network FORWARD first)"
     echo "  forward-and-docker  Configure network FORWARD and install Docker"
     echo "  add-user-to-docker  Add user to docker group"
@@ -2037,6 +2255,7 @@ show_help() {
     echo "  $0 --remote 192.168.1.1 admin admin forward  # Configure network remotely"
     echo "  $0 reverse                    # Configure network REVERSE locally"
     echo "  $0 set-password-admin         # Change password to admin locally"
+    echo "  $0 set-password mypass        # Change password to custom value locally"
     echo "  $0 forward-and-docker         # Configure network and install Docker locally"
     echo "  $0 add-user-to-docker         # Add user to docker group locally"
     echo "  $0 install-services           # Install all Docker services locally"
@@ -2163,6 +2382,16 @@ main() {
                 command="set-password-admin"
                 shift
                 ;;
+            set-password)
+                command="set-password"
+                CUSTOM_PASSWORD="$2"
+                if [ -z "$CUSTOM_PASSWORD" ]; then
+                    print_error "set-password requires a password argument"
+                    show_help
+                    exit 1
+                fi
+                shift 2
+                ;;
             reset-device)
                 command="reset-device"
                 shift
@@ -2254,6 +2483,10 @@ main() {
         set-password-admin)
             print_status "Changing password to admin..."
             configure_password_admin
+            ;;
+        set-password)
+            print_status "Changing password to custom value..."
+            configure_password_custom "$CUSTOM_PASSWORD"
             ;;
         reset-device)
             print_status "Resetting device to default state..."

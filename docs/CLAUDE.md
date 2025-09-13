@@ -11,22 +11,28 @@ This is the Bivicom Configuration Bot repository - a network automation toolkit 
 ## Core Architecture
 
 ### Primary Scripts
-- **`unified_bivicom_bot_with_wan_config.py`**: Main unified bot with enhanced WAN configuration supporting forward/reverse modes
-- **`master_bot.py`**: Legacy master coordination script  
-- **`script_no1.py`, `script_no2.py`, `script_no3.py`**: Modular components (device discovery, network config, infrastructure deployment)
-- **`radar_bot_gui.py`**: GUI interface using tkinter
+- **`master.py`**: Network bot that continuously scans for devices and runs automated configuration
+- **`network_config.sh`**: Comprehensive bash script for network configuration and Docker service deployment
+- **`gui.py`**: Cross-platform GUI interface using tkinter with sound notifications and progress tracking
 
-### Key Class: UnifiedBivicomBot
+### Key Classes
 
-The main `UnifiedBivicomBot` class orchestrates the entire deployment workflow:
+**NetworkBot (`master.py`):**
+- `scan_and_configure()`: Continuous device scanning and automated configuration
+- `run_network_config()`: Executes 8-step configuration sequence
+- `_get_timestamp()`: Timestamp generation for logging
 
-**Core Methods:**
+**NetworkBotGUI (`gui.py`):**
+- `log_message()`: Real-time logging with sound notifications
+- `update_step_progress()`: Visual progress tracking with audio feedback
+- `show_notification()`: Cross-platform system notifications
+- `reset_device()`: Complete device reset functionality
+
+**Configuration Script (`network_config.sh`):**
 - `configure_network_settings_forward()`: WAN=eth1 (DHCP), LAN=eth0 (Static)
-- `configure_network_settings_reverse()`: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static) 
-- `apply_wan_config()`: Enhanced network configuration with route cleanup
-- `deploy_infrastructure()`: Downloads and executes deployment scripts
-- `check_wan_connectivity()`: Verifies network connectivity post-configuration
-- `create_uci_backup()/restore_uci_backup_simple()`: Configuration backup/restore
+- `configure_network_settings_reverse()`: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)
+- `install_docker()`: Docker installation with retry logic
+- `reset_device()`: Complete factory reset with cleanup
 
 ### Configuration Architecture
 

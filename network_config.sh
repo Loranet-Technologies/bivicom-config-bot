@@ -25,6 +25,7 @@ REMOTE_USER="admin"
 REMOTE_PASSWORD="admin"
 REMOTE_SSH_KEY=""
 USE_SSH=false
+PINGED_REMOTE=false
 
 # =============================================================================
 # UTILITY FUNCTIONS
@@ -45,6 +46,40 @@ print_warning() {
 
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# Function to ping remote host before SSH operations (only once per session)
+ping_remote_host() {
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ] && [ "$PINGED_REMOTE" = false ]; then
+        print_status "Pinging remote host $REMOTE_HOST..."
+        if ping -c 3 -W 5 "$REMOTE_HOST" >/dev/null 2>&1; then
+            print_success "Remote host $REMOTE_HOST is reachable"
+            PINGED_REMOTE=true
+            return 0
+        else
+            print_error "Remote host $REMOTE_HOST is not reachable"
+            print_error "Please check network connectivity and IP address"
+            return 1
+        fi
+    elif [ "$PINGED_REMOTE" = true ]; then
+        # Already pinged successfully, skip
+        return 0
+    else
+        return 0  # No remote host to ping
+    fi
+}
+
+# Function to check if UCI is available
+check_uci_available() {
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        if [ -n "$REMOTE_SSH_KEY" ]; then
+            ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "which uci >/dev/null 2>&1"
+        else
+            sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "which uci >/dev/null 2>&1"
+        fi
+    else
+        which uci >/dev/null 2>&1
+    fi
 }
 
 # Function to execute commands locally or via SSH
@@ -106,6 +141,23 @@ check_ssh_mode() {
 configure_network_settings_forward() {
     print_status "Configuring network settings FORWARD (NO REBOOT)"
     
+    # Ping remote host once (if using SSH)
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        if ! ping_remote_host; then
+            print_error "Cannot configure network: Remote host is not reachable"
+            return 1
+        fi
+    fi
+    
+    # Check if UCI is available
+    if ! check_uci_available; then
+        print_error "UCI command not found! This device may not be running OpenWrt."
+        print_error "Please ensure the target device is running OpenWrt with UCI installed."
+        return 1
+    fi
+    
+    print_success "UCI is available, proceeding with network configuration..."
+    
     # WAN Configuration (DHCP on eth1)
     print_status "Configuring WAN interface (eth1) for DHCP..."
     wan_commands=(
@@ -159,6 +211,23 @@ configure_network_settings_forward() {
 # Function to configure network settings REVERSE: WAN=enx0250f4000000 (LTE), LAN=eth0 (Static)
 configure_network_settings_reverse() {
     print_status "Configuring network settings REVERSE (NO REBOOT)"
+    
+    # Ping remote host once (if using SSH)
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        if ! ping_remote_host; then
+            print_error "Cannot configure network: Remote host is not reachable"
+            return 1
+        fi
+    fi
+    
+    # Check if UCI is available
+    if ! check_uci_available; then
+        print_error "UCI command not found! This device may not be running OpenWrt."
+        print_error "Please ensure the target device is running OpenWrt with UCI installed."
+        return 1
+    fi
+    
+    print_success "UCI is available, proceeding with network configuration..."
     
     # WAN Configuration (LTE on USB device) - REVERSE
     print_status "Configuring WAN interface (enx0250f4000000) for LTE..."
@@ -366,7 +435,7 @@ install_curl() {
     # Try different package managers
     if execute_command "opkg update && opkg install curl" "Install curl via opkg"; then
         print_success "curl installed via opkg"
-    elif execute_command "apt update && apt install -y curl" "Install curl via apt"; then
+    elif execute_command "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections && apt update && DEBIAN_FRONTEND=noninteractive apt install -y curl" "Install curl via apt"; then
         print_success "curl installed via apt"
     elif execute_command "yum install -y curl" "Install curl via yum"; then
         print_success "curl installed via yum"
@@ -436,8 +505,19 @@ install_docker() {
     if execute_command "which apt" "Check if Debian/Ubuntu system"; then
         print_status "Detected Debian/Ubuntu system, installing Docker via apt..."
         
+        # Set non-interactive environment for debconf
+        print_status "Setting non-interactive environment for package installation..."
+        if execute_command "export DEBIAN_FRONTEND=noninteractive && export DEBIAN_PRIORITY=critical" "Set non-interactive frontend"; then
+            print_success "Non-interactive environment set"
+        fi
+        
+        # Configure debconf to be non-interactive
+        if execute_command "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections" "Configure debconf non-interactive"; then
+            print_success "debconf configured for non-interactive mode"
+        fi
+        
         # Update package list
-        if execute_command "sudo apt update" "Update package list"; then
+        if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt update" "Update package list"; then
             print_success "Package list updated"
         else
             print_warning "Failed to update package list"
@@ -445,13 +525,13 @@ install_docker() {
         
         # Try to install Docker from default repositories first
         print_status "Trying to install Docker from default repositories..."
-        if execute_command "sudo apt install -y docker.io" "Install Docker from default repo"; then
+        if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y docker.io" "Install Docker from default repo"; then
             print_success "Docker installed from default repository"
         else
             print_warning "Docker not available in default repositories, trying official Docker repository..."
             
             # Install required packages for official Docker repo
-            if execute_command "sudo apt install -y apt-transport-https ca-certificates curl gnupg lsb-release" "Install Docker dependencies"; then
+            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y apt-transport-https ca-certificates curl gnupg lsb-release" "Install Docker dependencies"; then
                 print_success "Docker dependencies installed"
             else
                 print_warning "Failed to install some dependencies"
@@ -472,14 +552,14 @@ install_docker() {
             fi
             
             # Update package list again
-            if execute_command "sudo apt update" "Update package list with Docker repo"; then
+            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt update" "Update package list with Docker repo"; then
                 print_success "Package list updated with Docker repository"
             else
                 print_warning "Failed to update package list with Docker repository"
             fi
             
             # Install Docker CE
-            if execute_command "sudo apt install -y docker-ce docker-ce-cli containerd.io" "Install Docker CE"; then
+            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io" "Install Docker CE"; then
                 print_success "Docker CE installed"
             else
                 print_error "Failed to install Docker CE"
@@ -722,6 +802,34 @@ NODE_RED_LOG_LEVEL=info'
         print_warning "Could not set Node-RED settings file permissions"
     fi
     
+    # Pre-pull Node-RED image with retry logic
+    print_status "Pulling Node-RED Docker image with retry logic..."
+    local pull_attempts=0
+    local max_attempts=3
+    local pull_success=false
+    
+    while [ $pull_attempts -lt $max_attempts ] && [ "$pull_success" = false ]; do
+        pull_attempts=$((pull_attempts + 1))
+        print_status "Docker pull attempt $pull_attempts/$max_attempts..."
+        
+        if execute_command "sudo docker pull nodered/node-red:latest" "Pull Node-RED image (attempt $pull_attempts)"; then
+            print_success "Node-RED image pulled successfully"
+            pull_success=true
+        else
+            print_warning "Docker pull attempt $pull_attempts failed"
+            if [ $pull_attempts -lt $max_attempts ]; then
+                print_status "Waiting 10 seconds before retry..."
+                sleep 10
+            fi
+        fi
+    done
+    
+    if [ "$pull_success" = false ]; then
+        print_error "Failed to pull Node-RED image after $max_attempts attempts"
+        print_error "Please check internet connectivity and Docker Hub access"
+        return 1
+    fi
+    
     # Start Node-RED container with environment file
     print_status "Starting Node-RED container with environment configuration..."
     if execute_command "sudo docker run -d --name nodered --restart unless-stopped -p 1880:1880 -v /data/nodered:/data --env-file /data/nodered/.env --privileged --device /dev/ttyUSB0 --device /dev/ttyUSB1 --device /dev/ttyACM0 --device /dev/ttyACM1 nodered/node-red:latest" "Start Node-RED container"; then
@@ -816,6 +924,34 @@ PORTAINER_DEBUG=false'
         print_success "Portainer environment file permissions set"
     else
         print_warning "Could not set Portainer environment file permissions"
+    fi
+    
+    # Pre-pull Portainer image with retry logic
+    print_status "Pulling Portainer Docker image with retry logic..."
+    local pull_attempts=0
+    local max_attempts=3
+    local pull_success=false
+    
+    while [ $pull_attempts -lt $max_attempts ] && [ "$pull_success" = false ]; do
+        pull_attempts=$((pull_attempts + 1))
+        print_status "Docker pull attempt $pull_attempts/$max_attempts..."
+        
+        if execute_command "sudo docker pull portainer/portainer-ce:latest" "Pull Portainer image (attempt $pull_attempts)"; then
+            print_success "Portainer image pulled successfully"
+            pull_success=true
+        else
+            print_warning "Docker pull attempt $pull_attempts failed"
+            if [ $pull_attempts -lt $max_attempts ]; then
+                print_status "Waiting 10 seconds before retry..."
+                sleep 10
+            fi
+        fi
+    done
+    
+    if [ "$pull_success" = false ]; then
+        print_error "Failed to pull Portainer image after $max_attempts attempts"
+        print_error "Please check internet connectivity and Docker Hub access"
+        return 1
     fi
     
     # Start Portainer container with environment file
@@ -917,6 +1053,34 @@ RS_DEBUG=false'
         print_success "Environment file permissions set"
     else
         print_warning "Could not set environment file permissions"
+    fi
+    
+    # Pre-pull Restreamer image with retry logic
+    print_status "Pulling Restreamer Docker image with retry logic..."
+    local pull_attempts=0
+    local max_attempts=3
+    local pull_success=false
+    
+    while [ $pull_attempts -lt $max_attempts ] && [ "$pull_success" = false ]; do
+        pull_attempts=$((pull_attempts + 1))
+        print_status "Docker pull attempt $pull_attempts/$max_attempts..."
+        
+        if execute_command "sudo docker pull datarhei/restreamer:latest" "Pull Restreamer image (attempt $pull_attempts)"; then
+            print_success "Restreamer image pulled successfully"
+            pull_success=true
+        else
+            print_warning "Docker pull attempt $pull_attempts failed"
+            if [ $pull_attempts -lt $max_attempts ]; then
+                print_status "Waiting 10 seconds before retry..."
+                sleep 10
+            fi
+        fi
+    done
+    
+    if [ "$pull_success" = false ]; then
+        print_error "Failed to pull Restreamer image after $max_attempts attempts"
+        print_error "Please check internet connectivity and Docker Hub access"
+        return 1
     fi
     
     # Start Restreamer container with environment file
@@ -1197,6 +1361,148 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24'
 # MAIN EXECUTION
 # =============================================================================
 
+# Function to reset device to default state
+reset_device() {
+    print_status "Starting device reset to default state..."
+    print_warning "This will remove all Docker containers, reset network to REVERSE mode, and restore default credentials"
+    
+    # Ping remote host once (if using SSH)
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        if ! ping_remote_host; then
+            print_error "Cannot reset device: Remote host is not reachable"
+            return 1
+        fi
+    fi
+    
+    # Check if UCI is available
+    if ! check_uci_available; then
+        print_error "UCI command not found! This device may not be running OpenWrt."
+        print_error "Cannot perform network reset without UCI. Please ensure the target device is running OpenWrt."
+        return 1
+    fi
+    
+    print_success "UCI is available, proceeding with device reset..."
+    
+    # Step 1: Stop and remove all Docker containers (if Docker is installed)
+    print_status "Step 1: Checking Docker installation and stopping containers..."
+    if execute_command "which docker >/dev/null 2>&1" "Check if Docker is installed"; then
+        print_success "Docker is installed, proceeding with container cleanup"
+        
+        if execute_command "sudo docker stop \$(sudo docker ps -aq) 2>/dev/null || true" "Stop all containers"; then
+            print_success "All containers stopped"
+        fi
+        
+        if execute_command "sudo docker rm \$(sudo docker ps -aq) 2>/dev/null || true" "Remove all containers"; then
+            print_success "All containers removed"
+        fi
+    else
+        print_warning "Docker is not installed, skipping container cleanup"
+    fi
+    
+    # Step 2: Remove all Docker images (if Docker is installed)
+    if execute_command "which docker >/dev/null 2>&1" "Check Docker for image cleanup"; then
+        print_status "Step 2: Removing all Docker images..."
+        if execute_command "sudo docker rmi \$(sudo docker images -q) 2>/dev/null || true" "Remove all images"; then
+            print_success "All Docker images removed"
+        fi
+        
+        # Step 3: Remove Docker volumes
+        print_status "Step 3: Removing Docker volumes..."
+        if execute_command "sudo docker volume rm \$(sudo docker volume ls -q) 2>/dev/null || true" "Remove all volumes"; then
+            print_success "All Docker volumes removed"
+        fi
+        
+        # Step 4: Remove Docker networks (except default)
+        print_status "Step 4: Removing custom Docker networks..."
+        if execute_command "sudo docker network rm \$(sudo docker network ls -q --filter type=custom) 2>/dev/null || true" "Remove custom networks"; then
+            print_success "Custom Docker networks removed"
+        fi
+    else
+        print_warning "Docker not installed, skipping image/volume/network cleanup"
+    fi
+    
+    # Step 5: Remove Docker data directories
+    print_status "Step 5: Removing Docker data directories..."
+    if execute_command "sudo rm -rf /data/nodered /data/portainer /data/restreamer /data/tailscale 2>/dev/null || true" "Remove data directories"; then
+        print_success "Docker data directories removed"
+    fi
+    
+    # Step 6: Remove user from docker group
+    print_status "Step 6: Removing user from docker group..."
+    if execute_command "sudo deluser admin docker 2>/dev/null || true" "Remove admin from docker group"; then
+        print_success "Admin removed from docker group"
+    fi
+    
+    # Step 7: Uninstall Docker (if installed)
+    print_status "Step 7: Checking and uninstalling Docker..."
+    if execute_command "which docker >/dev/null 2>&1" "Check if Docker needs uninstalling"; then
+        print_status "Docker is installed, proceeding with uninstallation..."
+        if execute_command "sudo apt-get remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true" "Uninstall Docker packages"; then
+            print_success "Docker packages uninstalled"
+        fi
+        
+        if execute_command "sudo apt-get autoremove -y 2>/dev/null || true" "Remove unused packages"; then
+            print_success "Unused packages removed"
+        fi
+    else
+        print_warning "Docker is not installed, skipping uninstallation"
+    fi
+    
+    # Step 8: Configure network to REVERSE mode (LTE WAN)
+    print_status "Step 8: Configuring network to REVERSE mode (LTE WAN)..."
+    configure_network_settings_reverse
+    
+    # Step 9: Reset password to admin/admin
+    print_status "Step 9: Resetting password to admin/admin..."
+    configure_password_admin
+    
+    # Step 10: Clean up any remaining Docker files
+    print_status "Step 10: Cleaning up remaining Docker files..."
+    if execute_command "sudo rm -rf /var/lib/docker 2>/dev/null || true" "Remove Docker lib directory"; then
+        print_success "Docker lib directory removed"
+    fi
+    
+    if execute_command "sudo rm -rf /etc/docker 2>/dev/null || true" "Remove Docker config directory"; then
+        print_success "Docker config directory removed"
+    fi
+    
+    # Step 11: Reset UCI to clean state
+    print_status "Step 11: Resetting UCI configuration..."
+    if execute_command "sudo uci delete network.wan 2>/dev/null || true" "Remove WAN config"; then
+        print_success "WAN configuration removed"
+    fi
+    
+    if execute_command "sudo uci delete network.lan 2>/dev/null || true" "Remove LAN config"; then
+        print_success "LAN configuration removed"
+    fi
+    
+    # Recreate basic network configuration
+    if execute_command "sudo uci set network.wan=interface" "Create WAN interface"; then
+        print_success "WAN interface created"
+    fi
+    
+    if execute_command "sudo uci set network.lan=interface" "Create LAN interface"; then
+        print_success "LAN interface created"
+    fi
+    
+    # Apply REVERSE configuration
+    configure_network_settings_reverse
+    
+    # Step 12: Restart network services
+    print_status "Step 12: Restarting network services..."
+    if execute_command "sudo /etc/init.d/network restart" "Restart network service"; then
+        print_success "Network service restarted"
+    fi
+    
+    print_success "Device reset completed successfully!"
+    print_warning "Device has been reset to default state:"
+    print_warning "- All Docker containers, images, and volumes removed"
+    print_warning "- Network configured to REVERSE mode (LTE WAN)"
+    print_warning "- Password reset to admin/admin"
+    print_warning "- IP address reset to 192.168.1.1"
+    print_warning "- All custom configurations removed"
+}
+
 # Function to show help
 show_help() {
     echo "Network Configuration Script"
@@ -1223,6 +1529,7 @@ show_help() {
     echo "  install-tailscale   Install Tailscale VPN router in Docker"
     echo "  install-curl        Install curl package"
     echo "  check-dns           Check internet connectivity and DNS"
+    echo "  reset-device        Reset device to default state (remove all Docker, reset network, restore defaults)"
     echo
     echo "Examples:"
     echo "  $0 forward                    # Configure network locally"
@@ -1237,6 +1544,8 @@ show_help() {
     echo "  $0 install-tailscale          # Install Tailscale VPN router locally"
     echo "  $0 install-curl               # Install curl locally"
     echo "  $0 check-dns                  # Check DNS locally"
+    echo "  $0 reset-device               # Reset device to default state locally"
+    echo "  $0 --remote 192.168.1.1 admin admin reset-device  # Reset device remotely"
 }
 
 # Main function
@@ -1334,6 +1643,10 @@ main() {
                 command="set-password-admin"
                 shift
                 ;;
+            reset-device)
+                command="reset-device"
+                shift
+                ;;
             *)
                 print_error "Unknown option: $1"
                 show_help
@@ -1409,6 +1722,10 @@ main() {
         set-password-admin)
             print_status "Changing password to admin..."
             configure_password_admin
+            ;;
+        reset-device)
+            print_status "Resetting device to default state..."
+            reset_device
             ;;
         "")
             print_error "No command specified"

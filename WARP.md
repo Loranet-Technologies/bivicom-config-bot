@@ -11,7 +11,7 @@ The Bivicom Configuration Bot is a network automation toolkit for configuring an
 **Primary Scripts:**
 - **`master.py`**: Network bot that continuously scans for devices and runs automated configuration
 - **`network_config.sh`**: Comprehensive bash script for network configuration and Docker service deployment
-- **`gui.py`**: Cross-platform GUI interface using tkinter for user-friendly operation (legacy)
+- **`gui.py`**: Cross-platform GUI interface using tkinter with sound notifications and progress tracking
 
 **Key Components:**
 - `NetworkBot`: Main bot class that handles continuous scanning and 8-step deployment sequence

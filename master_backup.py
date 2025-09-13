@@ -71,33 +71,33 @@ class NetworkBot:
                     "timeout": 30
                 },
                 {
-                    "name": "3. Install Docker (after network config)",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-docker"],
+                    "name": "3. Configure Network and Install Docker",
+                    "cmd": [self.script_path, "forward-and-docker"],
                     "timeout": 300
                 },
                 {
                     "name": "4. Install All Docker Services",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-services"],
+                    "cmd": [self.script_path, "install-services"],
                     "timeout": 300
                 },
                 {
                     "name": "5. Install Node-RED Nodes",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes"],
+                    "cmd": [self.script_path, "install-nodered-nodes"],
                     "timeout": 180
                 },
                 {
                     "name": "6. Import Node-RED Flows",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows"],
+                    "cmd": [self.script_path, "import-nodered-flows"],
                     "timeout": 120
                 },
                 {
                     "name": "7. Install Tailscale VPN Router",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale"],
+                    "cmd": [self.script_path, "install-tailscale"],
                     "timeout": 180
                 },
                 {
                     "name": "8. Configure Network REVERSE",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, "admin", "admin", "reverse"],
                     "timeout": 60
                 }
             ]
@@ -123,13 +123,13 @@ class NetworkBot:
                         print(f"[{self._get_timestamp()}] ❌ Step {i} failed!")
                         print(f"[{self._get_timestamp()}] 📄 Error: {result.stderr.strip()[:200]}...")
                         return False
-
+                        
                 except subprocess.TimeoutExpired:
                     print(f"[{self._get_timestamp()}] ⏰ Step {i} timed out after {command['timeout']} seconds")
                     return False
-                except Exception as e:
-                    print(f"[{self._get_timestamp()}] ❌ Step {i} error: {e}")
-                    return False
+        except Exception as e:
+                print(f"[{self._get_timestamp()}] ❌ Step {i} error: {e}")
+                return False
                 
                 # Small delay between commands
                 if i < len(commands):
@@ -177,8 +177,8 @@ class NetworkBot:
                     time.sleep(self.scan_interval)
                     
             except KeyboardInterrupt:
-                break
-            except Exception as e:
+                        break
+        except Exception as e:
                 print(f"[{self._get_timestamp()}] ❌ Error during scan: {e}")
                 time.sleep(self.scan_interval)
         

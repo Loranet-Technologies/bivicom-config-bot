@@ -2,12 +2,31 @@
 
 A comprehensive network automation toolkit for configuring and deploying infrastructure on Bivicom IoT devices. This project combines device discovery, SSH automation, UCI network configuration, and infrastructure deployment into a unified workflow.
 
+## 🆕 Recent Updates
+
+### v2.1 - Enhanced Reliability & User Experience
+- **🔊 Sound Notifications**: Audio feedback for success/error events across all platforms
+- **🔗 Ping Verification**: Connectivity checks before SSH operations to prevent timeouts
+- **🔄 Docker Retry Logic**: Robust image pulling with 3-attempt retry mechanism
+- **⚙️ Non-interactive Installation**: Fixed debconf issues for automated package installation
+- **🖥️ Enhanced GUI**: Username/password fields, progress tracking, and reset functionality
+- **🛠️ Device Reset**: Complete factory reset with Docker cleanup and network restoration
+- **🐛 Bug Fixes**: Fixed command parsing, remote execution, and error handling
+
+### v2.0 - GUI Application & Automation
+- **🖥️ GUI Application**: User-friendly interface with real-time logging
+- **📊 Progress Tracking**: Visual 8-step configuration progress
+- **🔐 User Configuration**: Username/password input with show/hide toggle
+- **🔔 System Notifications**: Cross-platform desktop notifications
+- **🔄 Reset Functionality**: Complete device reset to default state
+
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Python 3.7+
 - SSH access to target Bivicom devices
 - Network connectivity to target subnet (192.168.1.0/24)
+- `sshpass` utility for password-based SSH authentication
 
 ### Installation
 ```bash
@@ -39,6 +58,20 @@ python3 master.py --ip 192.168.1.100 --interval 5
 python3 master.py --help
 ```
 
+#### GUI Application (User-Friendly)
+```bash
+# Start the GUI application
+python3 gui.py
+
+# Features:
+# - Real-time log display with color-coded messages
+# - Step-by-step progress tracking (8-step configuration)
+# - Username/password configuration fields
+# - Sound notifications for success/error events
+# - System notifications for completion
+# - Reset device functionality
+```
+
 #### Manual Configuration Script
 ```bash
 # Configure network FORWARD
@@ -61,6 +94,17 @@ python3 master.py --help
 - **8-Step Configuration**: Complete automated deployment sequence
 - **Error Handling**: Graceful failure recovery and retry logic
 - **Real-time Logging**: Timestamped progress tracking with emojis
+- **Ping Verification**: Connectivity checks before SSH operations
+- **Robust Error Handling**: UCI availability checks and graceful failures
+
+### 🖥️ GUI Application (`gui.py`)
+- **Real-time Logging**: Color-coded log messages with timestamps
+- **Progress Tracking**: Visual 8-step configuration progress with checkboxes
+- **User Configuration**: Username/password input fields with show/hide toggle
+- **Sound Notifications**: Audio feedback for success/error events (cross-platform)
+- **System Notifications**: Desktop notifications for completion/errors
+- **Reset Functionality**: Complete device reset to default state
+- **Thread-safe**: Non-blocking UI with background operations
 
 ### 🔧 Configuration Script (`network_config.sh`)
 - **Network Configuration**: FORWARD and REVERSE modes
@@ -68,6 +112,10 @@ python3 master.py --help
 - **Node-RED Integration**: Custom nodes and flow import
 - **Tailscale VPN**: Secure mesh networking with route advertising
 - **Remote Execution**: SSH-based remote device management
+- **Ping Verification**: Connectivity checks before SSH operations
+- **Docker Image Retry**: Robust image pulling with retry logic
+- **Non-interactive Installation**: Debconf configuration for automated setup
+- **Device Reset**: Complete factory reset functionality
 
 ### 🎯 8-Step Automated Sequence
 

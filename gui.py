@@ -419,7 +419,7 @@ class NetworkBotGUI:
         ip_frame = ttk.LabelFrame(right_frame, text="Target Device Configuration", padding="5")
         ip_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        ttk.Label(ip_frame, text="Target IP:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        ttk.Label(ip_frame, text="Target LAN IP:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         self.target_ip_var = tk.StringVar(value="192.168.1.1")
         self.target_ip_entry = ttk.Entry(ip_frame, textvariable=self.target_ip_var, width=15)
         self.target_ip_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
@@ -460,8 +460,8 @@ class NetworkBotGUI:
         ttk.Label(ip_frame, text="(Default: 10 seconds)", 
                  font=("Arial", 8), foreground="gray").grid(row=3, column=2, sticky=tk.W, pady=(5, 0))
         
-        # Final IP configuration (for REVERSE step)
-        ttk.Label(ip_frame, text="Final IP (Step 10):").grid(row=4, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Final LAN IP configuration (for REVERSE step)
+        ttk.Label(ip_frame, text="Final LAN IP (Step 10):").grid(row=4, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
         self.final_ip_var = tk.StringVar(value="192.168.1.1")
         self.final_ip_entry = ttk.Entry(ip_frame, textvariable=self.final_ip_var, width=15)
         self.final_ip_entry.grid(row=4, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
@@ -509,7 +509,7 @@ class NetworkBotGUI:
             ("import-nodered-flows", "Import Node-RED Flows", ["install-services"]),
             ("update-nodered-auth", "Update Node-RED Authentication (uses GUI password)", ["install-services"]),
             ("install-tailscale", "Install Tailscale VPN Router", ["install-docker"]),
-            ("reverse", "Configure Network REVERSE (uses Final IP)", []),
+            ("reverse", "Configure Network REVERSE (uses Final LAN IP)", []),
             ("set-password", "Change Device Password (uses Final Password)", [])
         ]
         

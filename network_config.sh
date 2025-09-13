@@ -802,6 +802,22 @@ NODE_RED_LOG_LEVEL=info'
         print_warning "Could not set Node-RED settings file permissions"
     fi
     
+    # Check disk space before pulling images
+    print_status "Checking available disk space..."
+    if execute_command "df -h /" "Check disk space"; then
+        print_success "Disk space check completed"
+    else
+        print_warning "Could not check disk space"
+    fi
+    
+    # Clean up Docker system to free space
+    print_status "Cleaning up Docker system to free space..."
+    if execute_command "sudo docker system prune -f" "Clean Docker system"; then
+        print_success "Docker system cleaned"
+    else
+        print_warning "Docker system cleanup failed"
+    fi
+    
     # Pre-pull Node-RED image with retry logic
     print_status "Pulling Node-RED Docker image with retry logic..."
     local pull_attempts=0
@@ -812,21 +828,31 @@ NODE_RED_LOG_LEVEL=info'
         pull_attempts=$((pull_attempts + 1))
         print_status "Docker pull attempt $pull_attempts/$max_attempts..."
         
+        # Clean up any failed pulls before retry
+        if [ $pull_attempts -gt 1 ]; then
+            print_status "Cleaning up failed pull artifacts..."
+            execute_command "sudo docker system prune -f" "Clean failed pull artifacts"
+        fi
+        
         if execute_command "sudo docker pull nodered/node-red:latest" "Pull Node-RED image (attempt $pull_attempts)"; then
             print_success "Node-RED image pulled successfully"
             pull_success=true
         else
             print_warning "Docker pull attempt $pull_attempts failed"
             if [ $pull_attempts -lt $max_attempts ]; then
-                print_status "Waiting 10 seconds before retry..."
-                sleep 10
+                print_status "Waiting 15 seconds before retry..."
+                sleep 15
             fi
         fi
     done
     
     if [ "$pull_success" = false ]; then
         print_error "Failed to pull Node-RED image after $max_attempts attempts"
-        print_error "Please check internet connectivity and Docker Hub access"
+        print_error "Possible causes:"
+        print_error "- Insufficient disk space on target device"
+        print_error "- Docker daemon issues"
+        print_error "- Network connectivity problems"
+        print_error "- Docker Hub rate limiting"
         return 1
     fi
     
@@ -936,21 +962,31 @@ PORTAINER_DEBUG=false'
         pull_attempts=$((pull_attempts + 1))
         print_status "Docker pull attempt $pull_attempts/$max_attempts..."
         
+        # Clean up any failed pulls before retry
+        if [ $pull_attempts -gt 1 ]; then
+            print_status "Cleaning up failed pull artifacts..."
+            execute_command "sudo docker system prune -f" "Clean failed pull artifacts"
+        fi
+        
         if execute_command "sudo docker pull portainer/portainer-ce:latest" "Pull Portainer image (attempt $pull_attempts)"; then
             print_success "Portainer image pulled successfully"
             pull_success=true
         else
             print_warning "Docker pull attempt $pull_attempts failed"
             if [ $pull_attempts -lt $max_attempts ]; then
-                print_status "Waiting 10 seconds before retry..."
-                sleep 10
+                print_status "Waiting 15 seconds before retry..."
+                sleep 15
             fi
         fi
     done
     
     if [ "$pull_success" = false ]; then
         print_error "Failed to pull Portainer image after $max_attempts attempts"
-        print_error "Please check internet connectivity and Docker Hub access"
+        print_error "Possible causes:"
+        print_error "- Insufficient disk space on target device"
+        print_error "- Docker daemon issues"
+        print_error "- Network connectivity problems"
+        print_error "- Docker Hub rate limiting"
         return 1
     fi
     
@@ -1065,21 +1101,31 @@ RS_DEBUG=false'
         pull_attempts=$((pull_attempts + 1))
         print_status "Docker pull attempt $pull_attempts/$max_attempts..."
         
+        # Clean up any failed pulls before retry
+        if [ $pull_attempts -gt 1 ]; then
+            print_status "Cleaning up failed pull artifacts..."
+            execute_command "sudo docker system prune -f" "Clean failed pull artifacts"
+        fi
+        
         if execute_command "sudo docker pull datarhei/restreamer:latest" "Pull Restreamer image (attempt $pull_attempts)"; then
             print_success "Restreamer image pulled successfully"
             pull_success=true
         else
             print_warning "Docker pull attempt $pull_attempts failed"
             if [ $pull_attempts -lt $max_attempts ]; then
-                print_status "Waiting 10 seconds before retry..."
-                sleep 10
+                print_status "Waiting 15 seconds before retry..."
+                sleep 15
             fi
         fi
     done
     
     if [ "$pull_success" = false ]; then
         print_error "Failed to pull Restreamer image after $max_attempts attempts"
-        print_error "Please check internet connectivity and Docker Hub access"
+        print_error "Possible causes:"
+        print_error "- Insufficient disk space on target device"
+        print_error "- Docker daemon issues"
+        print_error "- Network connectivity problems"
+        print_error "- Docker Hub rate limiting"
         return 1
     fi
     
@@ -1110,6 +1156,18 @@ RS_DEBUG=false'
 # Function to install all Docker services
 install_docker_services() {
     print_status "Installing all Docker services (Node-RED, Portainer, Restreamer)..."
+    
+    # Check disk space and clean up Docker before starting
+    print_status "Preparing Docker environment..."
+    if execute_command "df -h /" "Check disk space"; then
+        print_success "Disk space check completed"
+    fi
+    
+    if execute_command "sudo docker system prune -f" "Clean Docker system"; then
+        print_success "Docker system cleaned"
+    else
+        print_warning "Docker system cleanup failed"
+    fi
     
     # Install Node-RED
     if install_nodered_docker; then

@@ -18,23 +18,56 @@ import signal
 import sys
 import os
 import argparse
+import logging
+from datetime import datetime
 
 
 class NetworkBot:
-    def __init__(self, target_ip="192.168.1.1", scan_interval=10):
+    def __init__(self, target_ip="192.168.1.1", scan_interval=10, verbose=False):
         self.target_ip = target_ip
         self.scan_interval = scan_interval
         self.running = True
+        self.verbose = verbose
         self.script_path = os.path.join(os.path.dirname(__file__), "network_config.sh")
+        self.username = "admin"
+        self.password = "admin"
+        
+        # Set up logging
+        self.setup_logging()
         
         # Set up signal handlers
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
+    def setup_logging(self):
+        """Set up logging to file and console"""
+        # Create logs directory if it doesn't exist
+        log_dir = os.path.join(os.path.dirname(__file__), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # Create log filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_file = os.path.join(log_dir, f"bivicom_bot_{timestamp}.log")
+        
+        # Configure logging
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.FileHandler(log_file),
+                logging.StreamHandler(sys.stdout) if self.verbose else logging.NullHandler()
+            ]
+        )
+        
+        self.logger = logging.getLogger(__name__)
+        self.logger.info(f"Logging initialized. Log file: {log_file}")
+        print(f"[{self._get_timestamp()}] 📝 Logging to: {log_file}")
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
         signal_name = signal.Signals(signum).name
         print(f"\n[{self._get_timestamp()}] Received {signal_name} signal. Stopping bot...")
+        self.logger.info(f"Received {signal_name} signal. Stopping bot...")
         self.running = False
     
     def _get_timestamp(self):
@@ -71,32 +104,42 @@ class NetworkBot:
                     "timeout": 30
                 },
                 {
-                    "name": "3. Install Docker (after network config)",
+                    "name": "3. Fix DNS Configuration",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "fix-dns"],
+                    "timeout": 60
+                },
+                {
+                    "name": "4. Install Docker (after network config)",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-docker"],
                     "timeout": 300
                 },
                 {
-                    "name": "4. Install All Docker Services",
+                    "name": "5. Install All Docker Services",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-services"],
                     "timeout": 300
                 },
                 {
-                    "name": "5. Install Node-RED Nodes",
+                    "name": "6. Install Node-RED Nodes",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes"],
                     "timeout": 180
                 },
                 {
-                    "name": "6. Import Node-RED Flows",
+                    "name": "7. Import Node-RED Flows",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows"],
                     "timeout": 120
                 },
                 {
-                    "name": "7. Install Tailscale VPN Router",
+                    "name": "8. Update Node-RED Authentication",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", "L@ranet2025"],
+                    "timeout": 60
+                },
+                {
+                    "name": "9. Install Tailscale VPN Router",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale"],
                     "timeout": 180
                 },
                 {
-                    "name": "8. Configure Network REVERSE",
+                    "name": "10. Configure Network REVERSE",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
                     "timeout": 60
                 }
@@ -104,10 +147,13 @@ class NetworkBot:
             
             # Execute each command in sequence
             for i, command in enumerate(commands, 1):
-                print(f"[{self._get_timestamp()}] 📋 Step {i}/8: {command['name']}")
+                print(f"[{self._get_timestamp()}] 📋 Step {i}/10: {command['name']}")
                 print(f"[{self._get_timestamp()}] 🔧 Running: {' '.join(command['cmd'])}")
                 
                 try:
+                    # Log the command being executed
+                    self.logger.info(f"Executing command: {' '.join(command['cmd'])}")
+                    
                     result = subprocess.run(
                         command['cmd'], 
                         capture_output=True, 
@@ -115,15 +161,36 @@ class NetworkBot:
                         timeout=command['timeout']
                     )
                     
+                    # Log full output to file
+                    if result.stdout.strip():
+                        self.logger.info(f"STDOUT:\n{result.stdout.strip()}")
+                    
+                    if result.stderr.strip():
+                        self.logger.warning(f"STDERR:\n{result.stderr.strip()}")
+                    
                     if result.returncode == 0:
                         print(f"[{self._get_timestamp()}] ✅ Step {i} completed successfully!")
+                        self.logger.info(f"Step {i} completed successfully")
+                        
+                        # Show output based on verbose mode
                         if result.stdout.strip():
-                            print(f"[{self._get_timestamp()}] 📄 Output: {result.stdout.strip()[:200]}...")
+                            if self.verbose:
+                                print(f"[{self._get_timestamp()}] 📄 Full Output:")
+                                print(result.stdout.strip())
+                            else:
+                                print(f"[{self._get_timestamp()}] 📄 Output: {result.stdout.strip()[:200]}...")
                     else:
                         print(f"[{self._get_timestamp()}] ❌ Step {i} failed!")
-                        print(f"[{self._get_timestamp()}] 📄 Error: {result.stderr.strip()[:200]}...")
+                        self.logger.error(f"Step {i} failed with return code {result.returncode}")
+                        
+                        # Always show error output
+                        if result.stderr.strip():
+                            print(f"[{self._get_timestamp()}] 📄 Error: {result.stderr.strip()}")
+                        if result.stdout.strip():
+                            print(f"[{self._get_timestamp()}] 📄 Output: {result.stdout.strip()}")
+                        
                         return False
-
+                
                 except subprocess.TimeoutExpired:
                     print(f"[{self._get_timestamp()}] ⏰ Step {i} timed out after {command['timeout']} seconds")
                     return False
@@ -138,7 +205,7 @@ class NetworkBot:
             
             print(f"[{self._get_timestamp()}] 🎉 Complete network configuration sequence finished successfully!")
             return True
-                
+            
         except Exception as e:
             print(f"[{self._get_timestamp()}] ❌ Error in network configuration sequence: {e}")
             return False
@@ -149,8 +216,11 @@ class NetworkBot:
         print(f"[{self._get_timestamp()}] 🎯 Looking for device at {self.target_ip}")
         print(f"[{self._get_timestamp()}] ⏱️  Scan interval: {self.scan_interval} seconds")
         print(f"[{self._get_timestamp()}] 📜 Script path: {self.script_path}")
+        print(f"[{self._get_timestamp()}] 📝 Verbose mode: {'ON' if self.verbose else 'OFF'}")
         print(f"[{self._get_timestamp()}] Press Ctrl+C to stop")
         print()
+        
+        self.logger.info(f"Bot started - Target IP: {self.target_ip}, Scan interval: {self.scan_interval}s, Verbose: {self.verbose}")
         
         while self.running:
             try:
@@ -190,27 +260,30 @@ def main():
     parser = argparse.ArgumentParser(description="Bivicom Network Bot - Scans for devices and runs complete network configuration sequence")
     parser.add_argument("--ip", default="192.168.1.1", help="Target IP address to scan for (default: 192.168.1.1)")
     parser.add_argument("--interval", type=int, default=10, help="Scan interval in seconds (default: 10)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show full output from all commands (default: show only summary)")
     
     args = parser.parse_args()
     
     print("Bivicom Network Bot")
     print("==================")
     print(f"This bot continuously scans for {args.ip} and runs a complete")
-    print("8-step network configuration sequence when the device is found:")
+    print("10-step network configuration sequence when the device is found:")
     print()
     print("Sequence:")
     print("1. Configure Network FORWARD")
     print("2. Check DNS Connectivity")
-    print("3. Configure Network and Install Docker")
-    print("4. Install All Docker Services (Node-RED, Portainer, Restreamer)")
-    print("5. Install Node-RED Nodes")
-    print("6. Import Node-RED Flows")
-    print("7. Install Tailscale VPN Router")
-    print("8. Configure Network REVERSE")
+    print("3. Fix DNS Configuration")
+    print("4. Install Docker")
+    print("5. Install All Docker Services (Node-RED, Portainer, Restreamer)")
+    print("6. Install Node-RED Nodes")
+    print("7. Import Node-RED Flows")
+    print("8. Update Node-RED Authentication (L@ranet2025)")
+    print("9. Install Tailscale VPN Router")
+    print("10. Configure Network REVERSE")
     print()
     
     # Create and run the bot
-    bot = NetworkBot(target_ip=args.ip, scan_interval=args.interval)
+    bot = NetworkBot(target_ip=args.ip, scan_interval=args.interval, verbose=args.verbose)
     bot.scan_and_configure()
     
 

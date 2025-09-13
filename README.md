@@ -4,6 +4,15 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ## 🆕 Recent Updates
 
+### v2.2 - Enhanced Logging & Safe Cleanup
+- **📝 Comprehensive Logging**: Full command output logging to timestamped files
+- **🔍 Verbose Mode**: Real-time detailed output with `--verbose` flag
+- **🛡️ Safe Disk Cleanup**: New `safe-cleanup` command that preserves Docker images
+- **⚡ Optimized Sequence**: Removed cleanup-disk from automated Python bot sequence
+- **📊 Enhanced Node-RED**: Updated settings with custom theme and static file serving
+- **🔧 Improved Error Handling**: Better bcrypt hash generation and error reporting
+- **📁 Log Management**: Automatic log file creation in `logs/` directory
+
 ### v2.1 - Enhanced Reliability & User Experience
 - **🔊 Sound Notifications**: Audio feedback for success/error events across all platforms
 - **🔗 Ping Verification**: Connectivity checks before SSH operations to prevent timeouts
@@ -54,6 +63,12 @@ python3 master.py
 # Custom IP and scan interval
 python3 master.py --ip 192.168.1.100 --interval 5
 
+# Verbose mode - shows full output from all commands
+python3 master.py --verbose
+
+# Custom IP with verbose logging
+python3 master.py --ip 192.168.1.100 --verbose
+
 # Help
 python3 master.py --help
 ```
@@ -77,6 +92,12 @@ python3 gui.py
 # Configure network FORWARD
 ./network_config.sh --remote 192.168.1.1 admin admin forward
 
+# Safe disk cleanup (preserves Docker images)
+./network_config.sh --remote 192.168.1.1 admin admin safe-cleanup
+
+# Aggressive disk cleanup (removes all Docker images)
+./network_config.sh --remote 192.168.1.1 admin admin cleanup-disk
+
 # Install all Docker services
 ./network_config.sh --remote 192.168.1.1 admin admin install-services
 
@@ -91,7 +112,9 @@ python3 gui.py
 
 ### 🤖 Network Bot (`master.py`)
 - **Continuous Scanning**: Automatically detects Bivicom devices at 192.168.1.1
-- **8-Step Configuration**: Complete automated deployment sequence
+- **10-Step Configuration**: Complete automated deployment sequence (cleanup-disk removed)
+- **Comprehensive Logging**: Full command output saved to timestamped log files
+- **Verbose Mode**: Real-time detailed output with `--verbose` flag
 - **Error Handling**: Graceful failure recovery and retry logic
 - **Real-time Logging**: Timestamped progress tracking with emojis
 - **Ping Verification**: Connectivity checks before SSH operations
@@ -109,26 +132,31 @@ python3 gui.py
 ### 🔧 Configuration Script (`network_config.sh`)
 - **Network Configuration**: FORWARD and REVERSE modes
 - **Docker Services**: Node-RED, Portainer, Restreamer with hardware privileges
-- **Node-RED Integration**: Custom nodes and flow import
+- **Node-RED Integration**: Custom nodes, flow import, and enhanced settings
 - **Tailscale VPN**: Secure mesh networking with route advertising
 - **Remote Execution**: SSH-based remote device management
 - **Ping Verification**: Connectivity checks before SSH operations
 - **Docker Image Retry**: Robust image pulling with retry logic
 - **Non-interactive Installation**: Debconf configuration for automated setup
+- **Safe Disk Cleanup**: Preserves Docker images while freeing space
 - **Device Reset**: Complete factory reset functionality
 
-### 🎯 8-Step Automated Sequence
+### 🎯 10-Step Automated Sequence
 
 When a device is detected, the bot automatically runs:
 
 1. **Configure Network FORWARD** - Set up temporary DHCP WAN for deployment
 2. **Check DNS Connectivity** - Verify internet access
-3. **Configure Network and Install Docker** - Set up container runtime
-4. **Install All Docker Services** - Deploy Node-RED, Portainer, Restreamer
-5. **Install Node-RED Nodes** - Add custom nodes (ffmpeg, queue-gate, sqlite, serialport)
-6. **Import Node-RED Flows** - Load your radar and automation flows
-7. **Install Tailscale VPN Router** - Set up secure mesh networking
-8. **Configure Network REVERSE** - Switch to final LTE WAN configuration
+3. **Fix DNS Configuration** - Ensure proper DNS resolution
+4. **Install Docker** - Set up container runtime
+5. **Install All Docker Services** - Deploy Node-RED, Portainer, Restreamer
+6. **Install Node-RED Nodes** - Add custom nodes (ffmpeg, queue-gate, sqlite, serialport)
+7. **Import Node-RED Flows** - Load your radar and automation flows
+8. **Update Node-RED Authentication** - Set secure password (L@ranet2025)
+9. **Install Tailscale VPN Router** - Set up secure mesh networking
+10. **Configure Network REVERSE** - Switch to final LTE WAN configuration
+
+> **Note**: The cleanup-disk step has been removed from the automated sequence to preserve Docker images during deployment.
 
 ## 🏗️ Architecture
 
@@ -194,6 +222,7 @@ python3 master.py [OPTIONS]
 Options:
   --ip IP              Target IP address to scan for (default: 192.168.1.1)
   --interval INTERVAL  Scan interval in seconds (default: 10)
+  --verbose, -v        Show full output from all commands (default: show only summary)
   -h, --help          Show help message
 ```
 
@@ -210,9 +239,13 @@ Commands:
   import-nodered-flows Import Node-RED flows from backup
   install-tailscale   Install Tailscale VPN router
   check-dns           Check internet connectivity and DNS
+  fix-dns             Fix DNS configuration by adding Google DNS (8.8.8.8)
+  safe-cleanup        Perform safe disk cleanup (preserves Docker images)
+  cleanup-disk        Perform aggressive disk cleanup (removes all Docker images)
   add-user-to-docker  Add user to docker group
   install-curl        Install curl package
   set-password-admin  Change password back to admin
+  reset-device        Reset device to default state (remove all Docker, reset network, restore defaults)
 
 Options:
   --remote HOST [USER] [PASS]  Execute commands on remote host via SSH
@@ -242,11 +275,14 @@ The script automatically installs these nodes:
 ### Project Structure
 ```
 bivicom-config-bot/
-├── master.py              # Network bot (218 lines)
-├── network_config.sh      # Configuration script (1400+ lines)
+├── master.py              # Network bot with comprehensive logging (290+ lines)
+├── network_config.sh      # Configuration script (2400+ lines)
 ├── gui.py                 # GUI interface (legacy)
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Configuration file
+├── logs/                  # Automatic log file directory
+│   ├── bivicom_bot_20250109_143022.log
+│   └── bivicom_bot_20250109_150315.log
 ├── docs/
 │   └── CLAUDE.md         # Development documentation
 ├── WARP.md               # WARP IDE documentation
@@ -313,8 +349,24 @@ ssh admin@192.168.1.1 "sudo docker logs nodered"
 
 ### Log Files
 - **Bot Logs**: Real-time console output with timestamps
+- **Detailed Logs**: Full command output saved to `logs/bivicom_bot_YYYYMMDD_HHMMSS.log`
+- **Verbose Mode**: Real-time detailed output with `--verbose` flag
 - **Script Logs**: Detailed command execution logs
 - **Container Logs**: Docker service logs via SSH
+
+### Logging Features
+```bash
+# Normal mode - summary output, full logs saved to file
+python3 master.py
+
+# Verbose mode - real-time detailed output + file logging
+python3 master.py --verbose
+
+# Log files are automatically created in logs/ directory
+ls logs/
+# bivicom_bot_20250109_143022.log
+# bivicom_bot_20250109_150315.log
+```
 
 ## 🔒 Security
 

@@ -421,6 +421,193 @@ add_user_to_docker_group() {
 # SYSTEM UTILITY FUNCTIONS
 # =============================================================================
 
+# Function to check disk space and return available space in MB
+check_disk_space() {
+    local path="${1:-/}"
+    local available_space
+    
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        available_space=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "df -m '$path' | tail -1 | awk '{print \$4}'" 2>/dev/null || echo "0")
+    else
+        available_space=$(df -m "$path" | tail -1 | awk '{print $4}' 2>/dev/null || echo "0")
+    fi
+    
+    echo "$available_space"
+}
+
+# Function to check if we have enough disk space (minimum 2GB)
+check_sufficient_disk_space() {
+    local min_space_mb=2048  # 2GB minimum
+    local available_space
+    
+    print_status "Checking available disk space..."
+    available_space=$(check_disk_space)
+    
+    if [ "$available_space" -lt "$min_space_mb" ]; then
+        print_warning "Insufficient disk space: ${available_space}MB available, ${min_space_mb}MB required"
+        return 1
+    else
+        print_success "Sufficient disk space: ${available_space}MB available"
+        return 0
+    fi
+}
+
+# Function to perform aggressive disk cleanup
+aggressive_disk_cleanup() {
+    print_status "Performing aggressive disk cleanup..."
+    
+    # Show current disk usage
+    print_status "Current disk usage:"
+    execute_command "df -h /" "Show disk usage"
+    
+    # Clean up package cache
+    print_status "Cleaning package cache..."
+    if execute_command "sudo apt-get clean" "Clean apt cache"; then
+        print_success "Package cache cleaned"
+    fi
+    
+    if execute_command "sudo apt-get autoremove -y" "Remove unused packages"; then
+        print_success "Unused packages removed"
+    fi
+    
+    # Clean up APT cache more aggressively
+    if execute_command "sudo rm -rf /var/cache/apt/archives/*" "Remove APT archives"; then
+        print_success "APT archives cleaned"
+    fi
+    
+    # Clean up log files
+    print_status "Cleaning log files..."
+    if execute_command "sudo find /var/log -name '*.log' -type f -mtime +7 -delete" "Clean old log files"; then
+        print_success "Old log files cleaned"
+    fi
+    
+    if execute_command "sudo find /var/log -name '*.gz' -type f -mtime +3 -delete" "Clean old compressed logs"; then
+        print_success "Old compressed logs cleaned"
+    fi
+    
+    # Clean up temporary files
+    print_status "Cleaning temporary files..."
+    if execute_command "sudo rm -rf /tmp/*" "Clean /tmp directory"; then
+        print_success "Temporary files cleaned"
+    fi
+    
+    if execute_command "sudo rm -rf /var/tmp/*" "Clean /var/tmp directory"; then
+        print_success "Variable temporary files cleaned"
+    fi
+    
+    # Clean up Docker if it exists
+    if execute_command "which docker >/dev/null 2>&1" "Check if Docker exists"; then
+        print_status "Performing aggressive Docker cleanup..."
+        
+        # Stop all containers
+        if execute_command "sudo docker stop \$(sudo docker ps -aq) 2>/dev/null || true" "Stop all containers"; then
+            print_success "All containers stopped"
+        fi
+        
+        # Remove all containers
+        if execute_command "sudo docker rm \$(sudo docker ps -aq) 2>/dev/null || true" "Remove all containers"; then
+            print_success "All containers removed"
+        fi
+        
+        # Remove all images (including dangling)
+        if execute_command "sudo docker rmi \$(sudo docker images -aq) 2>/dev/null || true" "Remove all images"; then
+            print_success "All images removed"
+        fi
+        
+        # Remove all volumes
+        if execute_command "sudo docker volume rm \$(sudo docker volume ls -q) 2>/dev/null || true" "Remove all volumes"; then
+            print_success "All volumes removed"
+        fi
+        
+        # Remove all networks (except default)
+        if execute_command "sudo docker network rm \$(sudo docker network ls -q --filter type=custom) 2>/dev/null || true" "Remove custom networks"; then
+            print_success "Custom networks removed"
+        fi
+        
+        # System prune with all options
+        if execute_command "sudo docker system prune -af --volumes" "Docker system prune with volumes"; then
+            print_success "Docker system pruned with volumes"
+        fi
+        
+        # Remove Docker build cache
+        if execute_command "sudo docker builder prune -af" "Docker builder prune"; then
+            print_success "Docker build cache pruned"
+        fi
+        
+        # Clean up Docker temporary files
+        if execute_command "sudo rm -rf /var/lib/docker/tmp/*" "Clean Docker temp files"; then
+            print_success "Docker temp files cleaned"
+        fi
+        
+        # Clean up Docker overlay2 (if exists)
+        if execute_command "sudo rm -rf /var/lib/docker/overlay2/*" "Clean Docker overlay2"; then
+            print_success "Docker overlay2 cleaned"
+        fi
+        
+        # Restart Docker daemon to clear any corrupted state
+        print_status "Restarting Docker daemon to clear corrupted state..."
+        if execute_command "sudo systemctl restart docker" "Restart Docker daemon"; then
+            print_success "Docker daemon restarted"
+        fi
+        
+        # Wait for Docker to be ready
+        sleep 5
+        
+        # Verify Docker is working
+        if execute_command "sudo docker info" "Verify Docker daemon"; then
+            print_success "Docker daemon is working"
+        else
+            print_warning "Docker daemon may have issues"
+        fi
+    fi
+    
+    # Clean up old kernels (if on Ubuntu/Debian)
+    print_status "Cleaning old kernels..."
+    if execute_command "sudo apt-get autoremove --purge -y" "Remove old kernels"; then
+        print_success "Old kernels removed"
+    fi
+    
+    # Show disk usage after cleanup
+    print_status "Disk usage after cleanup:"
+    execute_command "df -h /" "Show disk usage after cleanup"
+    
+    print_success "Aggressive disk cleanup completed"
+}
+
+# Function to ensure sufficient disk space with cleanup if needed
+ensure_sufficient_disk_space() {
+    local min_space_mb=2048  # 2GB minimum
+    local available_space
+    local cleanup_attempts=0
+    local max_cleanup_attempts=3
+    
+    while [ $cleanup_attempts -lt $max_cleanup_attempts ]; do
+        available_space=$(check_disk_space)
+        
+        if [ "$available_space" -ge "$min_space_mb" ]; then
+            print_success "Sufficient disk space available: ${available_space}MB"
+            return 0
+        fi
+        
+        cleanup_attempts=$((cleanup_attempts + 1))
+        print_warning "Insufficient disk space: ${available_space}MB available, ${min_space_mb}MB required"
+        print_status "Performing cleanup attempt $cleanup_attempts/$max_cleanup_attempts..."
+        
+        aggressive_disk_cleanup
+        
+        # Wait a moment for cleanup to complete
+        sleep 5
+    done
+    
+    available_space=$(check_disk_space)
+    if [ "$available_space" -lt "$min_space_mb" ]; then
+        print_error "Still insufficient disk space after $max_cleanup_attempts cleanup attempts: ${available_space}MB"
+        return 1
+    fi
+    
+    return 0
+}
+
 # Function to install curl
 install_curl() {
     print_status "Installing curl..."
@@ -453,6 +640,99 @@ install_curl() {
     fi
 }
 
+# Function to fix DNS configuration
+fix_dns_configuration() {
+    print_status "Fixing DNS configuration..."
+    
+    # Check current DNS configuration
+    print_status "Current DNS configuration:"
+    execute_command "cat /etc/resolv.conf" "Show current DNS config"
+    
+    # Check if systemd-resolved is managing DNS
+    if execute_command "systemctl is-active systemd-resolved" "Check systemd-resolved status"; then
+        print_status "systemd-resolved is active, configuring DNS through systemd..."
+        
+        # Configure systemd-resolved to use Google DNS
+        print_status "Configuring systemd-resolved with Google DNS..."
+        if execute_command "sudo mkdir -p /etc/systemd/resolved.conf.d" "Create systemd resolved config directory"; then
+            print_success "systemd resolved config directory created"
+        fi
+        
+        # Create systemd-resolved configuration
+        local resolved_config='[Resolve]
+DNS=8.8.8.8 8.8.4.4
+FallbackDNS=1.1.1.1 1.0.0.1'
+        
+        if execute_command "echo '$resolved_config' | sudo tee /etc/systemd/resolved.conf.d/dns_servers.conf" "Create systemd resolved config"; then
+            print_success "systemd-resolved configuration created"
+        fi
+        
+        # Restart systemd-resolved
+        print_status "Restarting systemd-resolved service..."
+        if execute_command "sudo systemctl restart systemd-resolved" "Restart systemd-resolved"; then
+            print_success "systemd-resolved restarted"
+        fi
+        
+        # Wait for service to be ready
+        sleep 3
+        
+    else
+        print_status "systemd-resolved not active, configuring /etc/resolv.conf directly..."
+        
+        # Check if Google DNS is already configured
+        if execute_command "grep -q '8.8.8.8' /etc/resolv.conf" "Check for Google DNS"; then
+            print_success "Google DNS (8.8.8.8) already configured"
+            return 0
+        fi
+        
+        # Backup current resolv.conf
+        print_status "Backing up current DNS configuration..."
+        if execute_command "sudo cp /etc/resolv.conf /etc/resolv.conf.backup" "Backup DNS config"; then
+            print_success "DNS configuration backed up"
+        fi
+        
+        # Add Google DNS to resolv.conf
+        print_status "Adding Google DNS (8.8.8.8) to configuration..."
+        if execute_command "echo 'nameserver 8.8.8.8' | sudo tee -a /etc/resolv.conf" "Add Google DNS"; then
+            print_success "Google DNS added to configuration"
+        else
+            print_error "Failed to add Google DNS"
+            return 1
+        fi
+        
+        # Also add 8.8.4.4 as secondary DNS
+        print_status "Adding secondary Google DNS (8.8.4.4)..."
+        if execute_command "echo 'nameserver 8.8.4.4' | sudo tee -a /etc/resolv.conf" "Add secondary Google DNS"; then
+            print_success "Secondary Google DNS added"
+        fi
+    fi
+    
+    # Show updated DNS configuration
+    print_status "Updated DNS configuration:"
+    execute_command "cat /etc/resolv.conf" "Show updated DNS config"
+    
+    # Test DNS resolution with multiple methods
+    print_status "Testing DNS resolution with new configuration..."
+    
+    # Try dig first
+    if execute_command "dig google.com +short" "Test DNS with dig"; then
+        print_success "DNS resolution working with dig"
+    # Try host command
+    elif execute_command "host google.com" "Test DNS with host"; then
+        print_success "DNS resolution working with host"
+    # Try nslookup
+    elif execute_command "nslookup google.com" "Test DNS with nslookup"; then
+        print_success "DNS resolution working with nslookup"
+    # Try ping as last resort
+    elif execute_command "ping -c 1 google.com" "Test DNS with ping"; then
+        print_success "DNS resolution working with ping"
+    else
+        print_warning "DNS resolution test failed, but configuration may still work"
+    fi
+    
+    print_success "DNS configuration fixed"
+}
+
 # Function to check internet connectivity and DNS
 check_internet_dns() {
     print_status "Checking internet connectivity and DNS..."
@@ -462,7 +742,8 @@ check_internet_dns() {
     if execute_command "nslookup google.com" "DNS resolution test"; then
         print_success "DNS resolution working"
     else
-        print_warning "DNS resolution failed"
+        print_warning "DNS resolution failed - attempting to fix..."
+        fix_dns_configuration
     fi
     
     # Test internet connectivity
@@ -497,6 +778,12 @@ install_docker() {
     if execute_command "docker --version" "Check if Docker is installed"; then
         print_success "Docker is already installed"
         return 0
+    fi
+    
+    # Ensure sufficient disk space before installation
+    if ! ensure_sufficient_disk_space; then
+        print_error "Cannot install Docker: insufficient disk space"
+        return 1
     fi
     
     print_status "Docker not found, installing..."
@@ -802,20 +1089,10 @@ NODE_RED_LOG_LEVEL=info'
         print_warning "Could not set Node-RED settings file permissions"
     fi
     
-    # Check disk space before pulling images
-    print_status "Checking available disk space..."
-    if execute_command "df -h /" "Check disk space"; then
-        print_success "Disk space check completed"
-    else
-        print_warning "Could not check disk space"
-    fi
-    
-    # Clean up Docker system to free space
-    print_status "Cleaning up Docker system to free space..."
-    if execute_command "sudo docker system prune -f" "Clean Docker system"; then
-        print_success "Docker system cleaned"
-    else
-        print_warning "Docker system cleanup failed"
+    # Ensure sufficient disk space before pulling images
+    if ! ensure_sufficient_disk_space; then
+        print_error "Cannot install Node-RED: insufficient disk space"
+        return 1
     fi
     
     # Pre-pull Node-RED image with retry logic
@@ -831,8 +1108,28 @@ NODE_RED_LOG_LEVEL=info'
         # Clean up any failed pulls before retry
         if [ $pull_attempts -gt 1 ]; then
             print_status "Cleaning up failed pull artifacts..."
-            execute_command "sudo docker system prune -f" "Clean failed pull artifacts"
+            execute_command "sudo docker system prune -af --volumes" "Clean failed pull artifacts"
+            execute_command "sudo docker builder prune -af" "Clean build cache"
+            execute_command "sudo rm -rf /var/lib/docker/tmp/*" "Clean Docker temp files"
+            
+            # Perform more aggressive cleanup on retry
+            print_status "Performing additional cleanup for retry..."
+            execute_command "sudo apt-get clean" "Clean apt cache"
+            execute_command "sudo rm -rf /tmp/*" "Clean /tmp directory"
+            
+            # Check disk space again after cleanup
+            local available_space=$(check_disk_space)
+            print_status "Available disk space after cleanup: ${available_space}MB"
+            
+            if [ "$available_space" -lt 1024 ]; then
+                print_error "Still insufficient disk space after cleanup: ${available_space}MB"
+                break
+            fi
         fi
+        
+        # Check disk space before each pull attempt
+        local available_space=$(check_disk_space)
+        print_status "Available disk space: ${available_space}MB"
         
         if execute_command "sudo docker pull nodered/node-red:latest" "Pull Node-RED image (attempt $pull_attempts)"; then
             print_success "Node-RED image pulled successfully"
@@ -878,6 +1175,155 @@ NODE_RED_LOG_LEVEL=info'
     fi
     
     print_success "Node-RED installation completed"
+}
+
+# Function to update Node-RED authentication with custom password
+update_nodered_auth() {
+    local new_password="${1:-admin}"
+    print_status "Updating Node-RED authentication with new password..."
+    
+    # Check if Node-RED container is running
+    if ! execute_command "sudo docker ps | grep nodered" "Check if Node-RED is running"; then
+        print_error "Node-RED container is not running. Please install Node-RED first."
+        return 1
+    fi
+    
+    # Generate bcrypt hash for the new password
+    print_status "Generating bcrypt hash for password..."
+    local bcrypt_hash
+    if bcrypt_hash=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo docker exec nodered node -e \"console.log(require('bcryptjs').hashSync(process.argv[1], 8))\" '$new_password'" 2>/dev/null | tail -1); then
+        print_success "Bcrypt hash generated successfully"
+        print_status "Generated hash: $bcrypt_hash"
+    else
+        print_error "Failed to generate bcrypt hash"
+        return 1
+    fi
+    
+    # Stop Node-RED container to update settings
+    print_status "Stopping Node-RED container for settings update..."
+    if execute_command "sudo docker stop nodered" "Stop Node-RED container"; then
+        print_success "Node-RED container stopped"
+    else
+        print_error "Failed to stop Node-RED container"
+        return 1
+    fi
+    
+    # Create new settings.js with updated authentication
+    print_status "Creating updated Node-RED settings with new authentication..."
+    local nodered_settings="module.exports = {
+    uiPort: process.env.PORT || 1880,
+    mqttReconnectTime: 15000,
+    serialReconnectTime: 15000,
+    debugMaxLength: 1000,
+    debugUseColors: true,
+    flowFile: \"flows.json\",
+    flowFilePretty: true,
+    userDir: \"/data/\",
+    nodesDir: \"/data/nodes\",
+    functionGlobalContext: {},
+    exportGlobalContextKeys: false,
+    editorTheme: {
+        projects: {
+            enabled: false
+        }
+    },
+    adminAuth: {
+        type: \"credentials\",
+        users: [{
+            username: \"admin\",
+            password: \"$bcrypt_hash\",
+            permissions: \"*\"
+        }]
+    },
+    httpAdminRoot: \"/admin\",
+    httpNodeRoot: \"/api\",
+    httpStatic: [
+        {
+            path: \"/static\",
+            root: \"/usr/src/node-red/public\"
+        }
+    ],
+    httpStaticRoot: \"/static/\",
+    contextStorage: {
+        default: {
+            module: \"localfilesystem\"
+        }
+    },
+    exportGlobalContextKeys: false,
+    logging: {
+        console: {
+            level: \"info\",
+            metrics: false,
+            audit: false
+        }
+    },
+    editorTheme: {
+        page: {
+            title: \"Node-RED\",
+            favicon: \"/absolute/path/to/theme/icon\",
+            css: \"/absolute/path/to/custom/css/file\",
+            scripts: \"/absolute/path/to/custom/script/file\"
+        },
+        header: {
+            title: \"Node-RED\",
+            image: \"/absolute/path/to/header/image\",
+            url: \"http://nodered.org\"
+        },
+        deployButton: {
+            type: \"simple\",
+            label: \"Save\",
+            icon: \"/absolute/path/to/deploy/button/image\"
+        },
+        menu: { \"menu-item-import-library\": false, \"menu-item-export-library\": false, \"menu-item-keyboard-shortcuts\": false, \"menu-item-help\": { label: \"Alternative Help Link\", url: \"http://example.com\" } },
+        userMenu: false,
+        login: {
+            image: \"/absolute/path/to/login/page/big/image\"
+        },
+        logout: {
+            redirect: \"/\"
+        }
+    }
+};"
+    
+    # Write updated settings.js file
+    if execute_command "echo '$nodered_settings' | sudo tee /data/nodered/settings.js > /dev/null" "Create updated Node-RED settings file"; then
+        print_success "Updated Node-RED settings file created with new authentication"
+    else
+        print_error "Failed to create updated Node-RED settings file"
+        return 1
+    fi
+    
+    # Set proper permissions for settings file
+    if execute_command "sudo chown 1000:1000 /data/nodered/settings.js" "Set Node-RED settings file permissions"; then
+        print_success "Node-RED settings file permissions set"
+    else
+        print_warning "Could not set Node-RED settings file permissions"
+    fi
+    
+    # Start Node-RED container
+    print_status "Starting Node-RED container with updated authentication..."
+    if execute_command "sudo docker start nodered" "Start Node-RED container"; then
+        print_success "Node-RED container started with updated authentication"
+    else
+        print_error "Failed to start Node-RED container"
+        return 1
+    fi
+    
+    # Wait for Node-RED to be ready
+    print_status "Waiting for Node-RED to be ready..."
+    sleep 15
+    
+    # Verify Node-RED is running
+    if execute_command "sudo docker ps | grep nodered" "Verify Node-RED container"; then
+        print_success "Node-RED container is running with updated authentication"
+        print_success "New password: $new_password"
+        print_success "Access Node-RED at: http://192.168.1.1:1880/admin"
+    else
+        print_error "Node-RED container verification failed"
+        return 1
+    fi
+    
+    print_success "Node-RED authentication updated successfully"
 }
 
 # Function to install Portainer with Docker Compose
@@ -1157,16 +1603,10 @@ RS_DEBUG=false'
 install_docker_services() {
     print_status "Installing all Docker services (Node-RED, Portainer, Restreamer)..."
     
-    # Check disk space and clean up Docker before starting
-    print_status "Preparing Docker environment..."
-    if execute_command "df -h /" "Check disk space"; then
-        print_success "Disk space check completed"
-    fi
-    
-    if execute_command "sudo docker system prune -f" "Clean Docker system"; then
-        print_success "Docker system cleaned"
-    else
-        print_warning "Docker system cleanup failed"
+    # Ensure sufficient disk space before starting
+    if ! ensure_sufficient_disk_space; then
+        print_error "Cannot install Docker services: insufficient disk space"
+        return 1
     fi
     
     # Install Node-RED
@@ -1584,9 +2024,12 @@ show_help() {
     echo "  install-services    Install all Docker services (Node-RED, Portainer, Restreamer)"
     echo "  install-nodered-nodes Install Node-RED nodes (ffmpeg, queue-gate, sqlite, serialport)"
     echo "  import-nodered-flows Import Node-RED flows from backup"
+    echo "  update-nodered-auth [PASSWORD] Update Node-RED authentication with custom password"
     echo "  install-tailscale   Install Tailscale VPN router in Docker"
     echo "  install-curl        Install curl package"
     echo "  check-dns           Check internet connectivity and DNS"
+    echo "  fix-dns             Fix DNS configuration by adding Google DNS (8.8.8.8)"
+    echo "  cleanup-disk        Perform aggressive disk cleanup to free space"
     echo "  reset-device        Reset device to default state (remove all Docker, reset network, restore defaults)"
     echo
     echo "Examples:"
@@ -1599,6 +2042,7 @@ show_help() {
     echo "  $0 install-services           # Install all Docker services locally"
     echo "  $0 install-nodered-nodes      # Install Node-RED nodes locally"
     echo "  $0 import-nodered-flows       # Import Node-RED flows locally"
+    echo "  $0 update-nodered-auth mypass # Update Node-RED password locally"
     echo "  $0 install-tailscale          # Install Tailscale VPN router locally"
     echo "  $0 install-curl               # Install curl locally"
     echo "  $0 check-dns                  # Check DNS locally"
@@ -1689,12 +2133,30 @@ main() {
                 command="import-nodered-flows"
                 shift
                 ;;
+            update-nodered-auth)
+                command="update-nodered-auth"
+                # Check if password is provided as next argument
+                if [ -n "$2" ] && [[ "$2" != -* ]]; then
+                    NODERED_PASSWORD="$2"
+                    shift 2
+                else
+                    shift
+                fi
+                ;;
             install-tailscale)
                 command="install-tailscale"
                 shift
                 ;;
             check-dns)
                 command="check-dns"
+                shift
+                ;;
+            fix-dns)
+                command="fix-dns"
+                shift
+                ;;
+            cleanup-disk)
+                command="cleanup-disk"
                 shift
                 ;;
             set-password-admin)
@@ -1769,6 +2231,10 @@ main() {
             print_status "Importing Node-RED flows..."
             import_nodered_flows
             ;;
+        update-nodered-auth)
+            print_status "Updating Node-RED authentication..."
+            update_nodered_auth "$NODERED_PASSWORD"
+            ;;
         install-tailscale)
             print_status "Installing Tailscale VPN router..."
             install_tailscale_docker
@@ -1776,6 +2242,14 @@ main() {
         check-dns)
             print_status "Checking internet and DNS..."
             check_internet_dns
+            ;;
+        fix-dns)
+            print_status "Fixing DNS configuration..."
+            fix_dns_configuration
+            ;;
+        cleanup-disk)
+            print_status "Performing aggressive disk cleanup..."
+            aggressive_disk_cleanup
             ;;
         set-password-admin)
             print_status "Changing password to admin..."

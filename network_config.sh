@@ -2160,7 +2160,19 @@ reset_device() {
     
     # Step 8: Configure network to REVERSE mode (LTE WAN)
     print_status "Step 8: Configuring network to REVERSE mode (LTE WAN)..."
+    print_warning "IMPORTANT: This will configure the device to use LTE WAN while keeping LAN accessible"
     configure_network_settings_reverse
+    
+    # Verify network is still accessible after configuration
+    print_status "Verifying network accessibility after configuration..."
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        if ping_remote_host; then
+            print_success "Device remains accessible after network configuration"
+        else
+            print_warning "Device may have lost connectivity - this is normal for network changes"
+            print_warning "Please wait for network services to restart before attempting to reconnect"
+        fi
+    fi
     
     # Step 9: Reset password to admin/admin
     print_status "Step 9: Resetting password to admin/admin..."
@@ -2176,27 +2188,16 @@ reset_device() {
         print_success "Docker config directory removed"
     fi
     
-    # Step 11: Reset UCI to clean state
-    print_status "Step 11: Resetting UCI configuration..."
-    if execute_command "sudo uci delete network.wan 2>/dev/null || true" "Remove WAN config"; then
-        print_success "WAN configuration removed"
+    # Step 11: Commit UCI changes and ensure network is properly configured
+    print_status "Step 11: Committing UCI changes and ensuring network stability..."
+    if execute_command "sudo uci commit network" "Commit network configuration"; then
+        print_success "Network configuration committed"
     fi
     
-    if execute_command "sudo uci delete network.lan 2>/dev/null || true" "Remove LAN config"; then
-        print_success "LAN configuration removed"
+    # Verify network interfaces are properly configured
+    if execute_command "sudo uci show network | grep -E 'network\.(wan|lan)\.' | head -10" "Verify network configuration"; then
+        print_success "Network interfaces verified"
     fi
-    
-    # Recreate basic network configuration
-    if execute_command "sudo uci set network.wan=interface" "Create WAN interface"; then
-        print_success "WAN interface created"
-    fi
-    
-    if execute_command "sudo uci set network.lan=interface" "Create LAN interface"; then
-        print_success "LAN interface created"
-    fi
-    
-    # Apply REVERSE configuration
-    configure_network_settings_reverse
     
     # Step 12: Perform aggressive disk cleanup
     print_status "Step 12: Performing aggressive disk cleanup..."
@@ -2216,6 +2217,9 @@ reset_device() {
     print_warning "- IP address reset to 192.168.1.1"
     print_warning "- All custom configurations removed"
     print_warning "- Aggressive disk cleanup performed (logs, cache, temp files)"
+    print_warning ""
+    print_warning "IMPORTANT: Device should remain accessible at 192.168.1.1"
+    print_warning "If you cannot connect, wait 2-3 minutes for network services to fully restart"
 }
 
 # Function to show help

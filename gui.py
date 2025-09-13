@@ -54,6 +54,29 @@ def play_sound(sound_type="success"):
             elif system == "windows":
                 import winsound
                 winsound.MessageBeep(winsound.MB_ICONHAND)
+        elif sound_type == "completion":
+            if system == "darwin":  # macOS
+                # Play a celebratory sound sequence
+                os.system("afplay /System/Library/Sounds/Glass.aiff")
+                time.sleep(0.3)
+                os.system("afplay /System/Library/Sounds/Glass.aiff")
+                time.sleep(0.3)
+                os.system("afplay /System/Library/Sounds/Glass.aiff")
+            elif system == "linux":
+                # Play a celebratory beep sequence
+                os.system("echo -e '\a'")
+                time.sleep(0.3)
+                os.system("echo -e '\a'")
+                time.sleep(0.3)
+                os.system("echo -e '\a'")
+            elif system == "windows":
+                import winsound
+                # Play a celebratory beep sequence
+                winsound.MessageBeep(winsound.MB_OK)
+                time.sleep(0.3)
+                winsound.MessageBeep(winsound.MB_OK)
+                time.sleep(0.3)
+                winsound.MessageBeep(winsound.MB_OK)
     except Exception:
         # Fallback to system beep if sound playing fails
         print("\a", end="", flush=True)
@@ -990,6 +1013,8 @@ class NetworkBotGUI:
                 self.log_message("✅ Device reset completed successfully!", "SUCCESS")
                 # Show success notification
                 self.show_notification("Device Reset", "Device has been reset to default state successfully!")
+                # Play completion sound
+                threading.Thread(target=lambda: play_sound("completion"), daemon=True).start()
             else:
                 self.log_message(f"❌ Device reset failed with return code {return_code}!", "ERROR")
                 
@@ -1039,6 +1064,8 @@ class NetworkBotGUI:
             else:
                 self.log_message("Bot completed successfully.", "SUCCESS")
                 self.show_notification("Bivicom Network Bot", "Bot completed successfully.")
+                # Play completion sound
+                threading.Thread(target=lambda: play_sound("completion"), daemon=True).start()
             
             # Update status
             self.root.after(0, lambda: self.status_label.config(text="Status: Completed"))

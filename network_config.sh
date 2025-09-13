@@ -237,12 +237,13 @@ configure_network_settings_reverse() {
         "sudo uci set network.wan.mtu=1500"
     )
     
-    # LAN Configuration (Static on eth0) - Keep same
-    print_status "Configuring LAN interface (eth0) for static..."
+    # LAN Configuration (Static on eth0) - Use custom IP if provided
+    local lan_ip="${CUSTOM_LAN_IP:-192.168.1.1}"
+    print_status "Configuring LAN interface (eth0) for static with IP: $lan_ip..."
     lan_commands=(
         "sudo uci set network.lan.proto='static'"
         "sudo uci set network.lan.ifname='eth0'"
-        "sudo uci set network.lan.ipaddr='192.168.1.1'"
+        "sudo uci set network.lan.ipaddr='$lan_ip'"
         "sudo uci set network.lan.netmask='255.255.255.0'"
     )
     
@@ -2234,7 +2235,7 @@ show_help() {
     echo
     echo "Commands:"
     echo "  forward             Configure network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)"
-    echo "  reverse             Configure network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)"
+    echo "  reverse [LAN_IP]    Configure network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static with optional custom IP)"
     echo "  set-password-admin  Change password back to admin"
     echo "  set-password PASSWORD  Change password to custom value"
     echo "  install-docker      Install Docker container engine (requires network FORWARD first)"
@@ -2257,7 +2258,8 @@ show_help() {
     echo "Examples:"
     echo "  $0 forward                    # Configure network locally"
     echo "  $0 --remote 192.168.1.1 admin admin forward  # Configure network remotely"
-    echo "  $0 reverse                    # Configure network REVERSE locally"
+    echo "  $0 reverse                    # Configure network REVERSE locally (default 192.168.1.1)"
+    echo "  $0 reverse 192.168.100.1      # Configure network REVERSE with custom LAN IP"
     echo "  $0 set-password-admin         # Change password to admin locally"
     echo "  $0 set-password mypass        # Change password to custom value locally"
     echo "  $0 forward-and-docker         # Configure network and install Docker locally"
@@ -2314,7 +2316,13 @@ main() {
                 ;;
             reverse)
                 command="reverse"
-                shift
+                # Check if next argument is a custom LAN IP
+                if [[ $# -gt 0 && $2 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    CUSTOM_LAN_IP="$2"
+                    shift 2
+                else
+                    shift
+                fi
                 ;;
             install-curl)
                 command="install-curl"

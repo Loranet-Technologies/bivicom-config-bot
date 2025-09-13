@@ -221,7 +221,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "reverse": {
                     "name": "Configure Network REVERSE",
-                    "cmd": [self.script_path, "--remote", self.final_ip, self.username, self.password, "reverse"],
+                    "cmd": [self.script_path, "--remote", self.final_ip, self.username, self.password, "reverse", self.final_ip],
                     "timeout": 60
                 },
                 "set-password": {

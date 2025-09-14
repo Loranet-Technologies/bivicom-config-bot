@@ -1,0 +1,1497 @@
+[
+    {
+        "id": "c6fdc014f79c73d7",
+        "type": "tab",
+        "label": "radar03",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "d3dfdfd513fb0aa2",
+        "type": "tab",
+        "label": "modbusSolar",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "e8bb17e4f6e25a56",
+        "type": "tab",
+        "label": "pushToLedDisplay",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "a732ee65fe020f24",
+        "type": "tab",
+        "label": "Recording ",
+        "disabled": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "e24e7ea8469bab08",
+        "type": "tab",
+        "label": "Data Handling",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "19b3c3c4c41722e8",
+        "type": "tab",
+        "label": "Decode Data",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "fe153e5da4b937a6",
+        "type": "group",
+        "z": "c6fdc014f79c73d7",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "c00a95d04f85d204",
+            "5c387bf597313272",
+            "2924467d7f1b989c",
+            "6af15a9e987a0b63",
+            "6af2a7d381f9eaf0"
+        ],
+        "x": 54,
+        "y": 39,
+        "w": 752,
+        "h": 142
+    },
+    {
+        "id": "923a137fcd331aae",
+        "type": "group",
+        "z": "c6fdc014f79c73d7",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "inject-test",
+            "function-path",
+            "file-save",
+            "debug-out",
+            "1c9ac09624af80b4"
+        ],
+        "x": 54,
+        "y": 199,
+        "w": 752,
+        "h": 162
+    },
+    {
+        "id": "f176d52d.8a5d98",
+        "type": "tls-config",
+        "name": "",
+        "cert": "",
+        "key": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": true
+    },
+    {
+        "id": "f52ff211.a533d",
+        "type": "mqtt-broker",
+        "z": "c6fdc014f79c73d7",
+        "name": "",
+        "broker": "mqtts://broker.react.net.my",
+        "port": "1883",
+        "tls": "f176d52d.8a5d98",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "7459e1c0f90208e3",
+        "type": "serial-port",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "solar-batery",
+        "serialport": "/dev/ttyS3",
+        "serialbaud": "9600",
+        "databits": "8",
+        "parity": "none",
+        "stopbits": "1",
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "200",
+        "bin": "bin",
+        "out": "time",
+        "addchar": "",
+        "responsetimeout": "10000"
+    },
+    {
+        "id": "499334b129b933ed",
+        "type": "serial-port",
+        "z": "e8bb17e4f6e25a56",
+        "name": "DISPLAY",
+        "serialport": "/dev/ttyS0",
+        "serialbaud": "9600",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "bin",
+        "out": "char",
+        "addchar": "",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "57ac84494075ccc8",
+        "type": "serial-port",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "serialport": "/dev/ttyS0",
+        "serialbaud": "9600",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "bin",
+        "out": "char",
+        "addchar": "",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "951f201ab53ccfb0",
+        "type": "serial-port",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "serialport": "/dev/ttyS0",
+        "serialbaud": "9600",
+        "databits": 8,
+        "parity": "none",
+        "stopbits": 1,
+        "waitfor": "",
+        "dtr": "none",
+        "rts": "none",
+        "cts": "none",
+        "dsr": "none",
+        "newline": "\\n",
+        "bin": "bin",
+        "out": "char",
+        "addchar": "",
+        "responsetimeout": 10000
+    },
+    {
+        "id": "db51e67223e51d73",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "mqtts://broker.react.net.my",
+        "port": 1883,
+        "tls": "f176d52d.8a5d98",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "394275e31b267799",
+        "type": "mqtt-broker",
+        "name": "react 2",
+        "broker": "broker.react.net.my",
+        "port": "8883",
+        "tls": "f176d52d.8a5d98",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "2054b162aec9c313",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "broker.react.net.my",
+        "port": "8883",
+        "tls": "f176d52d.8a5d98",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "d882c2298e9bfc3b",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "queue.laundritek.net",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "544f0af136055690",
+        "type": "sqlitedb",
+        "db": "/mnt/ssd/paadData/",
+        "mode": "RWC"
+    },
+    {
+        "id": "bbef3c3cecc6faf8",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "cloud.lightsol.net",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "c00a95d04f85d204",
+        "type": "mqtt out",
+        "z": "c6fdc014f79c73d7",
+        "g": "fe153e5da4b937a6",
+        "name": "new broker",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "bbef3c3cecc6faf8",
+        "x": 710,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "5c387bf597313272",
+        "type": "tcp in",
+        "z": "c6fdc014f79c73d7",
+        "g": "fe153e5da4b937a6",
+        "name": "",
+        "server": "client",
+        "host": "192.168.250.11",
+        "port": "8998",
+        "datamode": "stream",
+        "datatype": "buffer",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 180,
+        "y": 140,
+        "wires": [
+            [
+                "6af15a9e987a0b63"
+            ]
+        ]
+    },
+    {
+        "id": "2924467d7f1b989c",
+        "type": "comment",
+        "z": "c6fdc014f79c73d7",
+        "g": "fe153e5da4b937a6",
+        "name": "PaasData",
+        "info": "Couting accurately.",
+        "x": 140,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "6af15a9e987a0b63",
+        "type": "function",
+        "z": "c6fdc014f79c73d7",
+        "g": "fe153e5da4b937a6",
+        "name": "Counting and Classification",
+        "func": "const HEADER = Buffer.from([0x55, 0xAA, 0x55, 0xBB]);\nconst FOOTER = Buffer.from([0x55, 0xCC, 0x55, 0xDD]);\nconst packet = Buffer.from(msg.payload, 'hex'); // Convert HEX string to Buffer\n\nconst TARGET_TYPES = {\n    0x01: \"C6\", 0x02: \"C6\", 0x03: \"C6\", 0x04: \"C5\",\n    0x05: \"C2\", 0x06: \"C1\", 0x07: \"C1\", 0x08: \"C4\",\n    0x09: \"C3\", 0x0A: \"C3\", 0x0C: \"C4\", 0x0E: \"C2\"\n};\n\nif (!packet.subarray(0, HEADER.length).equals(HEADER) ||\n    !packet.subarray(packet.length - FOOTER.length).equals(FOOTER)) {\n    node.warn(\"Invalid packet: Missing HEADER or FOOTER\");\n    return null;\n}\n\nconst typeByte = packet[HEADER.length];\nif (typeByte !== 0x05) return null;\n\nconst checksum = packet[5];\nconst deviceIDBuffer = packet.subarray(8, 28);\nconst deviceID = deviceIDBuffer.toString('hex');\n\nconst timestampMs = packet.readBigUInt64BE(28);\nconst malaysiaOffset = 8 * 60 * 60 * 1000;\nconst timestampDate = new Date(Number(timestampMs) + malaysiaOffset);\nconst formattedTimestamp = timestampDate.toISOString();\n\nconst numEntries = packet.readUInt16BE(36);\nlet offset = 38;\nconst PASS_DATA_SIZE = 23;\nlet passData = [];\n\nfor (let i = 0; i < numEntries; i++) {\n    if (packet.length < offset + PASS_DATA_SIZE) break;\n    const entryData = packet.subarray(offset, offset + PASS_DATA_SIZE);\n\n    // Check occupancy status at byte index 18.\n    // If not \"Entering\" (i.e. value 1), ignore this target.\n    const occupancyStatus = entryData.readUInt8(18);\n    if (occupancyStatus !== 1) {\n        offset += PASS_DATA_SIZE;\n        continue;\n    }\n\n    const laneNumber = entryData.readUInt16BE(0);\n    const vehicleSpeed = (entryData.readUInt16BE(4) / 10.0);\n    const targetTypeRaw = entryData.readUInt8(19);\n    const targetType = TARGET_TYPES[targetTypeRaw] || \"other\";\n\n    passData.push({\n        gatewayID: \"0250f4000000\",\n        lane: laneNumber,\n        class: targetType,\n        speed: vehicleSpeed\n    });\n    offset += PASS_DATA_SIZE;\n}\n\n// If no targets meet the \"Entering\" criteria, completely ignore the packet.\nif (passData.length === 0) {\n    return null;\n}\nmsg.topic = \"sss/class/data\"\nmsg.payload = {\n    header: {\n        gatewayID:\"0250f4000000\",\n        frameType: typeByte,\n        checksum: checksum,\n        deviceId: deviceID,\n        timestamp: formattedTimestamp,\n        numberOfTargets: passData.length\n    },\n    target: passData[0]\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 140,
+        "wires": [
+            [
+                "c00a95d04f85d204",
+                "6af2a7d381f9eaf0",
+                "function-path",
+                "80238d947c3c61d2"
+            ]
+        ]
+    },
+    {
+        "id": "6af2a7d381f9eaf0",
+        "type": "debug",
+        "z": "c6fdc014f79c73d7",
+        "g": "fe153e5da4b937a6",
+        "name": "debug 12",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
+        "y": 140,
+        "wires": []
+    },
+    {
+        "id": "inject-test",
+        "type": "inject",
+        "z": "c6fdc014f79c73d7",
+        "g": "923a137fcd331aae",
+        "name": "Inject Test Data",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"header\":{\"frameType\":5,\"checksum\":48,\"deviceId\":\"5353535f4b75616c614c69706973310000000000\",\"timestamp\":\"2025-08-18T11:04:18.771Z\",\"numberOfTargets\":1},\"target\":{\"lane\":11,\"class\":\"C3\",\"speed\":55}}",
+        "payloadType": "json",
+        "x": 180,
+        "y": 320,
+        "wires": [
+            [
+                "function-path",
+                "debug-out"
+            ]
+        ]
+    },
+    {
+        "id": "function-path",
+        "type": "function",
+        "z": "c6fdc014f79c73d7",
+        "d": true,
+        "g": "923a137fcd331aae",
+        "name": "Build Daily Path",
+        "func": "let now = new Date();\nlet dateStr = now.toISOString().split(\"T\")[0];  // YYYY-MM-DD\n\n// Build folder + filename\nlet folder = \"/mnt/ssd/paadData/\" + dateStr;\nlet filename = folder + \"/data.json\";\n\n// Add wrapper with timestamp\nlet record = {\n    timestamp: now.toISOString(),\n    data: msg.payload\n};\n\nmsg.filename = filename;\nmsg.payload = JSON.stringify(record) + \"\\n\";\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 460,
+        "y": 300,
+        "wires": [
+            [
+                "file-save",
+                "debug-out"
+            ]
+        ]
+    },
+    {
+        "id": "file-save",
+        "type": "file",
+        "z": "c6fdc014f79c73d7",
+        "d": true,
+        "g": "923a137fcd331aae",
+        "name": "Write to SSD",
+        "filename": "filename",
+        "filenameType": "msg",
+        "appendNewline": false,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 670,
+        "y": 280,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "debug-out",
+        "type": "debug",
+        "z": "c6fdc014f79c73d7",
+        "g": "923a137fcd331aae",
+        "name": "Debug Output",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 680,
+        "y": 320,
+        "wires": []
+    },
+    {
+        "id": "1c9ac09624af80b4",
+        "type": "comment",
+        "z": "c6fdc014f79c73d7",
+        "g": "923a137fcd331aae",
+        "name": "Store passData save data /mnt/ssd/paadData",
+        "info": "",
+        "x": 250,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "80238d947c3c61d2",
+        "type": "q-gate",
+        "z": "c6fdc014f79c73d7",
+        "name": "",
+        "controlTopic": "control",
+        "defaultState": "open",
+        "openCmd": "open",
+        "closeCmd": "close",
+        "toggleCmd": "toggle",
+        "queueCmd": "queue",
+        "defaultCmd": "default",
+        "triggerCmd": "trigger",
+        "flushCmd": "flush",
+        "resetCmd": "reset",
+        "peekCmd": "peek",
+        "dropCmd": "drop",
+        "statusCmd": "status",
+        "maxQueueLength": "100",
+        "keepNewest": false,
+        "qToggle": false,
+        "persist": true,
+        "storeName": "default",
+        "x": 870,
+        "y": 300,
+        "wires": [
+            [
+                "c00a95d04f85d204"
+            ]
+        ]
+    },
+    {
+        "id": "02420378b682d2a9",
+        "type": "debug",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 530,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "5f7aa11225841d0b",
+        "type": "mqtt out",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "topic": "sss/solar/data",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "bbef3c3cecc6faf8",
+        "x": 700,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "b2faa1afe512a80c",
+        "type": "debug",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 670,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "f69ef20e49fd5e67",
+        "type": "function",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "GET-BATTERY INFO",
+        "func": "// Define the command to request 22 registers starting from 0x200\n// let commandHex = \"41160F0100009D0A0B0B04020016211A2B\";\nlet commandHex = \"01040200001A7079\"\n\n// Convert the hex string to a Buffer object\nmsg.payload = Buffer.from(commandHex, 'hex');\n\n// Send the command to the serial out node\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 280,
+        "wires": [
+            [
+                "0870edf5488db2a6"
+            ]
+        ]
+    },
+    {
+        "id": "ae3ca7f3c39fa801",
+        "type": "inject",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "*/10 0-23 * * *",
+        "once": true,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "str",
+        "x": 90,
+        "y": 280,
+        "wires": [
+            [
+                "f69ef20e49fd5e67"
+            ]
+        ]
+    },
+    {
+        "id": "50a1a20f3e3a035f",
+        "type": "debug",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "debug 13",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 700,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "49e26240e82539d0",
+        "type": "serial in",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "",
+        "serial": "7459e1c0f90208e3",
+        "x": 110,
+        "y": 120,
+        "wires": [
+            [
+                "02420378b682d2a9",
+                "d2a2d19e95e2a503"
+            ]
+        ]
+    },
+    {
+        "id": "0870edf5488db2a6",
+        "type": "serial out",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "command request",
+        "serial": "7459e1c0f90208e3",
+        "x": 490,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "d2a2d19e95e2a503",
+        "type": "function",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "DECODE BATTERY INFO",
+        "func": "let buf = Buffer.isBuffer(msg.payload) ? msg.payload : Buffer.from(msg.payload);\nif (buf.length < 3) return null;\n\n// Define metadata\n//const deveui = \"25070230139\"; \nconst gatewayID =\"0250f4000000\";\n// change this if needed\nconst ipAdress = \"http://192.168.14.1\";\nconst devicename = \"bivocom-14\";\n\nconst byteCount = buf[2];\nconst data = buf.slice(3, 3 + byteCount);\n\nlet payload = {\n    gatewayID,\n    ipAdress,\n    devicename,\n    alarm: null,\n    remainingAh: null,\n    batterySoc: null,\n    humidity: null,\n    batteryPower: null,\n    totalBatteryVoltage: null,\n    totalBatteryCurrent: null,\n    batteryChargingCurrent: null,\n    batteryDischargeCurrent: null,\n    temperatures1: null,\n    temperatures2: null,\n    remainingHours: null,\n    remainingDays: null\n};\n\n// Parse registers from 0x0200 onward\nfor (let i = 0; i < data.length; i += 2) {\n    let addr = 0x0200 + (i / 2);\n    let raw = data.readUInt16BE(i);\n\n    switch (addr) {\n        case 0x0201: // Warning information 1\n            payload.alarm = raw;\n            break;\n        case 0x0203: // Number of AH remaining\n            payload.remainingAh = raw / 10;\n            break;\n        case 0x0204: // Residual power SOC / PWM duty\n            payload.batterySoc = raw >> 8;\n            payload.humidity = raw & 0xFF;\n            break;\n        case 0x0205: // Power of battery (W)\n            payload.batteryPower = raw;\n            break;\n        case 0x0206: // Total battery voltage\n            payload.totalBatteryVoltage = raw / 10;\n            break;\n        case 0x0207: // Total battery current\n            payload.totalBatteryCurrent = (raw > 32767 ? raw - 65536 : raw) / 10;\n            break;\n        case 0x0208: // Charging current\n            payload.batteryChargingCurrent = (raw > 32767 ? raw - 65536 : raw) / 100;\n            break;\n        case 0x0209: // Discharge current\n            payload.batteryDischargeCurrent = (raw > 32767 ? raw - 65536 : raw) / 100;\n            break;\n        case 0x020A: // Temperature 1/2\n            let temp1 = raw >> 8;\n            let temp2 = raw & 0xFF;\n            if (temp1 > 127) temp1 -= 256;\n            if (temp2 > 127) temp2 -= 256;\n            payload.temperatures1 = temp1;\n            payload.temperatures2 = temp2;\n            break;\n        case 0x0214: // Internal timestamp (low 16 bits)\n            payload.remainingHours = raw;\n            break;\n        case 0x0215: // Remaining days\n            payload.remainingDays = raw;\n            break;\n    }\n}\n\n// Final output\nmsg.payload = payload;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 140,
+        "wires": [
+            [
+                "a2df8d28ff0f31db"
+            ]
+        ]
+    },
+    {
+        "id": "a2df8d28ff0f31db",
+        "type": "function",
+        "z": "d3dfdfd513fb0aa2",
+        "name": "function 1",
+        "func": "let payload = msg.payload;\n\nconst MPPT_EFFICIENCY = 0.95;\n\nmsg.topic = \"sss/solar/data\"\n\n// 1. Total energy discharge\npayload.totalEnergyDischarge = payload.batteryDischargeCurrent * payload.totalBatteryVoltage;\n\n// 2. Total energy charge\npayload.totalEnergyCharge = payload.batteryChargingCurrent * payload.totalBatteryVoltage;\n\n// 3. Dynamic solar panel voltage (calculated from power)\nlet solarPower = (payload.totalBatteryVoltage * payload.batteryChargingCurrent) / MPPT_EFFICIENCY;\npayload.solarPanelVoltage = (payload.batteryChargingCurrent > 0)\n    ? (solarPower / payload.batteryChargingCurrent)\n    : 0;\n\nmsg.payload = payload;\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 500,
+        "y": 200,
+        "wires": [
+            [
+                "b2faa1afe512a80c",
+                "5f7aa11225841d0b"
+            ]
+        ]
+    },
+    {
+        "id": "9e6d1b1ffdff3777",
+        "type": "function",
+        "z": "e8bb17e4f6e25a56",
+        "name": "sniff from 00x05",
+        "func": "const HEADER = Buffer.from([0x55, 0xAA, 0x55, 0xBB]);\nconst packet = Buffer.from(msg.payload);\nconst typeByte = packet[HEADER.length];\n\nif (typeByte === 0x05) {\n   msg.payload = packet.toString('hex').toUpperCase();\n   msg.payload = packet;\n   if(msg.payload.length === 64){\n    // let speed = hexString.readUInt16BE(42) / 10;\n    // let speeds = parseInt(speed);\n    //         //  msg.payload = speed / 10;\n    //         // Only send the speed if it's 20 or above\n    //     if (speeds > 20) {\n    //         let numStr = speeds.toString();\n    //             // Convert each digit to its ASCII value (in hex)\n    //         let hexDigits = numStr.split('').map(digit => digit.charCodeAt(0).toString(16).toUpperCase());\n\n    //             // Combine into a buffer if needed\n    //         msg.payload = Buffer.from(hexDigits.map(d => parseInt(d, 16)));\n    //             //msg.payload = parseInt(speed);\n    //         }       \n    return msg;   \n   }\n   \n}\n//return null;\n\n// && packet.length == 128",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 200,
+        "y": 280,
+        "wires": [
+            [
+                "d28347799e7e47c1",
+                "18f04cb4c55de653",
+                "600b684b44c4f626",
+                "7b1f9940bb9b2685"
+            ]
+        ]
+    },
+    {
+        "id": "d28347799e7e47c1",
+        "type": "function",
+        "z": "e8bb17e4f6e25a56",
+        "name": "decode data",
+        "func": "// Check if payload exists and is valid\nif (msg.payload) {\n    let hexString = msg.payload;\n\n    if (typeof hexString === \"string\" && hexString.length >= 76) {\n        try {\n            // Extract first target data section (starting at byte 39)\n            let target1 = {\n                // Target ID (10 bytes)\n                targetId: hexString.substring(76, 96),\n                \n                // Target Lane (1 byte)\n                lane: parseInt(hexString.substring(96, 98), 16),\n                \n                // Target Type (1 byte)\n                type: parseInt(hexString.substring(98, 100), 16),\n                \n                // Color (1 byte)\n                color: parseInt(hexString.substring(100, 102), 16),\n                \n                // Skip plate number (12 bytes of zeros)\n                \n                // X Coordinate (2 bytes) - might be negative\n                xCoord: (parseInt(hexString.substring(126, 130), 16) << 16 >> 16) / 10,\n                \n                // Y Coordinate (2 bytes)\n                yCoord: parseInt(hexString.substring(130, 134), 16) / 10,\n                \n                // Speed (2 bytes)\n                speed: (parseInt(hexString.substring(134, 138), 16) / 10) * 3.6,\n                \n                // Image X axis (2 bytes)\n                imageX: parseInt(hexString.substring(138, 142), 16),\n                \n                // Image Y axis (2 bytes)\n                imageY: parseInt(hexString.substring(142, 146), 16),\n                \n                // Target Azimuth Angle (2 bytes)\n                azimuth: parseInt(hexString.substring(154, 158), 16) / 10,\n                \n                // Vehicle dimensions (1 byte each)\n                length: parseInt(hexString.substring(158, 160), 16) / 10,\n                width: parseInt(hexString.substring(160, 162), 16) / 10,\n                height: parseInt(hexString.substring(162, 164), 16) / 10,\n                \n                // Parking status (1 byte)\n                parkingStatus: parseInt(hexString.substring(164, 166), 16),\n                \n                // Direction speeds (2 bytes each)\n                xSpeed: (parseInt(hexString.substring(166, 170), 16) << 16 >> 16) / 10,\n                ySpeed: (parseInt(hexString.substring(170, 174), 16) << 16 >> 16) / 10,\n                \n                // Acceleration values (2 bytes each)\n                motionAccel: (parseInt(hexString.substring(174, 178), 16) << 16 >> 16) / 100,\n                xAccel: (parseInt(hexString.substring(178, 182), 16) << 16 >> 16) / 100,\n                yAccel: (parseInt(hexString.substring(182, 186), 16) << 16 >> 16) / 100,\n                \n                // Location (4 bytes each)\n                longitude: parseInt(hexString.substring(186, 194), 16) / 10000000,\n                latitude: parseInt(hexString.substring(194, 202), 16) / 10000000\n            };\n\n            // Add type description\n            switch(target1.type) {\n                case 0: target1.typeDesc = \"other\"; break;\n                case 1: target1.typeDesc = \"C6\"; break;\n                case 2: target1.typeDesc = \"C6\"; break;\n                case 3: target1.typeDesc = \"tricycle\"; break;\n                case 4: target1.typeDesc = \"C5\"; break;\n                case 5: target1.typeDesc = \"C3\"; break;\n                case 6: target1.typeDesc = \"C1\"; break;\n                case 7: target1.typeDesc = \"C2\"; break;\n                case 8: target1.typeDesc = \"C4\"; break;\n                case 9: target1.typeDesc = \"C4\"; break;\n                case 10: target1.typeDesc = \"C3\"; break;\n                case 11: target1.typeDesc = \"C4\"; break;\n                case 12: target1.typeDesc = \"C4\"; break;\n                case 13: target1.typeDesc = \"person\"; break;\n                case 14: target1.typeDesc = \"c5\"; break;\n                default: target1.typeDesc = \"unknown\";\n            }\n\n            // Add color description\n            switch(target1.color) {\n                case 0: target1.colorDesc = \"other\"; break;\n                case 1: target1.colorDesc = \"white\"; break;\n                case 2: target1.colorDesc = \"gray\"; break;\n                case 3: target1.colorDesc = \"yellow\"; break;\n                case 4: target1.colorDesc = \"pink\"; break;\n                case 5: target1.colorDesc = \"red\"; break;\n                case 6: target1.colorDesc = \"purple\"; break;\n                case 7: target1.colorDesc = \"green\"; break;\n                case 8: target1.colorDesc = \"blue\"; break;\n                case 9: target1.colorDesc = \"brown\"; break;\n                case 10: target1.colorDesc = \"black\"; break;\n                default: target1.colorDesc = \"unknown\";\n            }\n\n            // Header information\n            let header = {\n                frameType: parseInt(hexString.substring(8, 10), 16),\n                checksum: parseInt(hexString.substring(10, 12), 16),\n                deviceId: hexString.substring(16, 56),\n                timestamp: hexString.substring(56, 72),\n                numberOfTargets: parseInt(hexString.substring(72, 76), 16)\n            };\n\n            msg.payload = {\n                header: header,\n                target: target1\n            };\n\n        } catch (error) {\n            msg.payload = { \n                error: \"Error parsing data: \" + error.message,\n                details: \"Error occurred while processing the hex string\"\n            };\n        }\n    } else {\n        msg.payload = { error: \"Invalid or too short payload data\" };\n    }\n} else {\n    msg.payload = { error: \"Payload not found\" };\n}\n\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 250,
+        "y": 400,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "e1bf5f7309d24c23",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 5",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 480,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "18f04cb4c55de653",
+        "type": "function",
+        "z": "e8bb17e4f6e25a56",
+        "name": "sniff only the speed only",
+        "func": "// Check if payload exists and is valid\nif (msg.payload) {\n    let hexString = msg.payload;\n\n    // if (typeof hexString === \"string\" && hexString.length >= 76) {\n        try {\n            // Extract first target data section (starting at byte 39)\n            //let speed = (parseInt(hexString.substring(43, 44), 16) / 10);\n            let speed = hexString.readUInt16BE(42) / 10;\n            let speeds = parseInt(speed);\n            //  msg.payload = speed / 10;\n            // Only send the speed if it's 20 or above\n            if (speeds > 20) {\n                let numStr = speeds.toString();\n\n                // Convert each digit to its ASCII value (in hex)\n                let hexDigits = numStr.split('').map(digit => digit.charCodeAt(0).toString(16).toUpperCase());\n\n                // Combine into a buffer if needed\n                msg.payload = Buffer.from(hexDigits.map(d => parseInt(d, 16)));\n                //msg.payload = parseInt(speed);\n            } else {\n                //let number = 20;\n                //let numStr = number.toString();// or you can return nothing to ignore the message\n                                // Convert each digit to its ASCII value (in hex)\n                //let hexDigits = numStr.split('').map(digit => digit.charCodeAt(0).toString(16).toUpperCase());\n\n                // Combine into a buffer if needed\n                //msg.payload = Buffer.from(hexDigits.map(d => parseInt(d, 16)));\n            }\n\n        } catch (error) {\n            msg.payload = { \n                error: \"Error parsing data: \" + error.message,\n                details: \"Error occurred while processing the hex string\"\n            };\n        }\n    // } else {\n    //     //msg.payload = { error: \"Invalid or too short payload data\" };\n    // }\n} else {\n    //msg.payload = { error: \"Payload not found\" };\n}\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 280,
+        "wires": [
+            [
+                "e1bf5f7309d24c23",
+                "d4deec9dcf210da4"
+            ]
+        ]
+    },
+    {
+        "id": "8e50ab9642568fee",
+        "type": "function",
+        "z": "e8bb17e4f6e25a56",
+        "name": "slow down data trigger every 5 sec",
+        "func": "// Get the current timestamp\nlet currentTime = Date.now();\n\n// Get the last allowed timestamp from context\nlet lastAllowedTime = context.get(\"lastAllowedTime\") || 0;\n\n// Set the delay time in milliseconds \nconst delayTime = 1000;\n\n// Check if enough time has passed\nif (currentTime - lastAllowedTime >= delayTime) {\n    // Update the last allowed timestamp\n    context.set(\"lastAllowedTime\", currentTime);\n    \n    // Allow the data to pass\n    return msg;\n} else {\n    // Drop or hold the message\n    return null;\n}\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 500,
+        "wires": [
+            [
+                "1cb5d4845c520682"
+            ]
+        ]
+    },
+    {
+        "id": "d4deec9dcf210da4",
+        "type": "function",
+        "z": "e8bb17e4f6e25a56",
+        "name": "combine with the display",
+        "func": "// let ByteHeader = \"4c 30 31 3F 32 33 01 D4 C1 42 51 32 32 38 46 2C CA B1 CB D9 31\"\n// let ByteFotter =\"6B 6D 2F 68 0D\"\n// let Speed = msg.payload\n\n\n// return msg;\n\n// Fixed parts as buffers\nlet part1 = Buffer.from([0x4C, 0x30, 0x31, 0x3F, 0x32, 0x33, 0x01, 0xD4, 0xC1, 0x42, 0x51, 0x32, 0x32, 0x38, 0x46, 0x2C, 0xCA, 0xB1, 0xCB, 0xD9]);\nlet part3 = Buffer.from([0x6B, 0x6D, 0x2F, 0x68, 0x0D]);\n\n// Dynamic part from msg.payload (expected as a buffer)\nlet part2 = Buffer.isBuffer(msg.payload) ? msg.payload : Buffer.from(msg.payload);\n\n// Combine all parts\nlet fullBuffer = Buffer.concat([part1, part2, part3]);\n\n// Output the combined buffer\nmsg.payload = fullBuffer;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 690,
+        "y": 280,
+        "wires": [
+            [
+                "8eba46cf15e52bce",
+                "9944c15ec517dc59"
+            ]
+        ]
+    },
+    {
+        "id": "8eba46cf15e52bce",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 720,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "1cb5d4845c520682",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 7",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 780,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "d2caaa20bfae5d0f",
+        "type": "comment",
+        "z": "e8bb17e4f6e25a56",
+        "name": "From Radar to Display",
+        "info": "",
+        "x": 140,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "20fc5bc4a589ff16",
+        "type": "tcp in",
+        "z": "e8bb17e4f6e25a56",
+        "name": "",
+        "server": "client",
+        "host": "192.168.14.11",
+        "port": "8998",
+        "datamode": "stream",
+        "datatype": "buffer",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 160,
+        "y": 200,
+        "wires": [
+            [
+                "9e6d1b1ffdff3777",
+                "2b4c769f00542766"
+            ]
+        ]
+    },
+    {
+        "id": "9944c15ec517dc59",
+        "type": "serial out",
+        "z": "e8bb17e4f6e25a56",
+        "name": "Radar Display TCP",
+        "serial": "499334b129b933ed",
+        "x": 930,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "2b4c769f00542766",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 1",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 460,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "600b684b44c4f626",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 18",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 380,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "7b1f9940bb9b2685",
+        "type": "debug",
+        "z": "e8bb17e4f6e25a56",
+        "name": "debug 2",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 460,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "inject_start",
+        "type": "inject",
+        "z": "a732ee65fe020f24",
+        "name": "Start Recording 7AM",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "00 07 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 320,
+        "y": 460,
+        "wires": [
+            [
+                "exec_start"
+            ]
+        ]
+    },
+    {
+        "id": "exec_start",
+        "type": "exec",
+        "z": "a732ee65fe020f24",
+        "command": "/home/admin/record_rtsp.sh",
+        "addpay": false,
+        "append": "",
+        "useSpawn": "true",
+        "timer": "",
+        "winHide": false,
+        "oldrc": false,
+        "name": "Start Recording",
+        "x": 520,
+        "y": 460,
+        "wires": [
+            [
+                "debug_start"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "debug_start",
+        "type": "debug",
+        "z": "a732ee65fe020f24",
+        "name": "Start Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 720,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "inject_stop",
+        "type": "inject",
+        "z": "a732ee65fe020f24",
+        "name": "Stop Recording 8PM",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "00 20 * * *",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 320,
+        "y": 560,
+        "wires": [
+            [
+                "exec_stop"
+            ]
+        ]
+    },
+    {
+        "id": "exec_stop",
+        "type": "exec",
+        "z": "a732ee65fe020f24",
+        "command": "/home/admin/stop_rtsp.sh",
+        "addpay": false,
+        "append": "",
+        "useSpawn": true,
+        "timer": "",
+        "oldrc": false,
+        "name": "Stop Recording",
+        "x": 520,
+        "y": 560,
+        "wires": [
+            [
+                "debug_stop"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "debug_stop",
+        "type": "debug",
+        "z": "a732ee65fe020f24",
+        "name": "Stop Output",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 720,
+        "y": 560,
+        "wires": []
+    },
+    {
+        "id": "6c2ddd0734c727b5",
+        "type": "tcp in",
+        "z": "19b3c3c4c41722e8",
+        "name": "",
+        "server": "client",
+        "host": "192.168.14.11",
+        "port": "8998",
+        "datamode": "stream",
+        "datatype": "buffer",
+        "newline": "",
+        "topic": "",
+        "trim": false,
+        "base64": false,
+        "tls": "",
+        "x": 160,
+        "y": 280,
+        "wires": [
+            [
+                "d5db1b12782c0f13",
+                "7a92af94e6d3f8ac",
+                "01807809ab010e1a",
+                "0152502b661c19e7",
+                "ca29f0eba8ada6f8",
+                "fed31a11fb2f7176"
+            ]
+        ]
+    },
+    {
+        "id": "d5db1b12782c0f13",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 13",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 360,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "ca29f0eba8ada6f8",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "name": "Lane Status",
+        "func": "const buffer = msg.payload;\n\n// Validate header/footer\nif (\n    buffer[0] !== 0x55 || buffer[1] !== 0xAA || buffer[2] !== 0x55 || buffer[3] !== 0xBB ||\n    buffer[buffer.length - 4] !== 0x55 || buffer[buffer.length - 3] !== 0xCC ||\n    buffer[buffer.length - 2] !== 0x55 || buffer[buffer.length - 1] !== 0xDD\n) {\n    return null;\n}\n\n// Only proceed if frame type is 0x04\nconst frameType = buffer[4];\nif (frameType !== 0x04) {\n    return null;\n}\n\n// Extract device info and timestamp\nconst deviceId = buffer.slice(8, 28).toString('ascii').replace(/\\0/g, '');\nconst timestamp = buffer.slice(28, 36).readBigUInt64BE();\nconst timestampDate = new Date(Number(timestamp));\nconst numEntries = buffer.readUInt16BE(36);\n\n// Parse entries\nconst entries = [];\nfor (let i = 0; i < numEntries; i++) {\n    const base = 38 + i * 34;\n    if (base + 34 > buffer.length - 4) break;\n\n    entries.push({\n        laneNo: buffer.readUInt16BE(base),\n        queueLengthM: buffer.readUInt16BE(base + 2) / 10,\n        queueHeadM: buffer.readUInt16BE(base + 4) / 10,\n        queueTailM: buffer.readUInt16BE(base + 6) / 10,\n        vehiclesInQueue: buffer.readUInt16BE(base + 8),\n        exceedsLimit: buffer[base + 10] === 1,\n        overflow: buffer[base + 11] === 1,\n        vehicleSpacingM: buffer.readUInt16BE(base + 12) / 10,\n        vehiclesOnline: buffer.readUInt16BE(base + 14),\n        averageSpeedKmh: buffer.readUInt16BE(base + 16) / 10,\n        speed85thKmh: buffer.readUInt16BE(base + 18) / 10,\n        leadVehiclePosM: buffer.readUInt16BE(base + 20) / 10,\n        leadVehicleSpeedKmh: buffer.readUInt16BE(base + 22) / 10,\n        trailVehiclePosM: buffer.readUInt16BE(base + 24) / 10,\n        trailVehicleSpeedKmh: buffer.readUInt16BE(base + 26) / 10,\n        spaceOccupancyPercent: buffer.readUInt16BE(base + 28) / 10,\n        reserved: buffer.slice(base + 30, base + 32).toString('hex')\n    });\n}\nmsg.topic = \"sss/lane/status\"\n// Final output\nmsg.payload = {\n    gatewayID: \"0250f4000000\",\n    deviceId,\n    frameType: \"LaneStatusData\",\n    timestamp: timestampDate.toISOString(),\n    numEntries,\n    entries,\n    raw: buffer.toString('hex').toUpperCase()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 300,
+        "wires": [
+            [
+                "f8d058ce457e57e2",
+                "124731794a305244",
+                "7904136a1fb9a41e"
+            ]
+        ]
+    },
+    {
+        "id": "0152502b661c19e7",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "name": "Traffic Data",
+        "func": "const buffer = msg.payload;\n\nif (\n    buffer[0] !== 0x55 || buffer[1] !== 0xAA || buffer[2] !== 0x55 || buffer[3] !== 0xBB ||\n    buffer.at(-4) !== 0x55 || buffer.at(-3) !== 0xCC || buffer.at(-2) !== 0x55 || buffer.at(-1) !== 0xDD\n) return null;\n\nif (buffer[4] !== 0x03) return null;\n\nconst deviceId = buffer.slice(8, 28).toString('ascii').replace(/\\0/g, '');\nconst timestamp = buffer.slice(28, 36).readBigUInt64BE();\nconst timestampDate = new Date(Number(timestamp));\nconst numEntries = buffer.readUInt16BE(36);\nconst entries = [];\n\nfor (let i = 0; i < numEntries; i++) {\n    const base = 38 + i * 50;\n    if (base + 50 > buffer.length - 4) break;\n\n    entries.push({\n        statisticalPeriodSec: buffer.readUInt16BE(base),\n        targetLane: buffer.readUInt16BE(base + 2),\n        monitoringLocationM: buffer.readUInt16BE(base + 4) / 10,\n        bicycleFlow: buffer.readUInt16BE(base + 6),\n        motorcycleFlow: buffer.readUInt16BE(base + 8),\n        tricycleFlow: buffer.readUInt16BE(base + 10),\n        busFlow: buffer.readUInt16BE(base + 12),\n        vanFlow: buffer.readUInt16BE(base + 14),\n        carFlow: buffer.readUInt16BE(base + 16),\n        suvFlow: buffer.readUInt16BE(base + 18),\n        largeTruckFlow: buffer.readUInt16BE(base + 20),\n        mediumTruckFlow: buffer.readUInt16BE(base + 22),\n        lightTruckFlow: buffer.readUInt16BE(base + 24),\n        hazmatFlow: buffer.readUInt16BE(base + 26),\n        engineeringFlow: buffer.readUInt16BE(base + 28),\n        pedestrianFlow: buffer.readUInt16BE(base + 30),\n        totalFlow: buffer.readUInt16BE(base + 32),\n        averageSpeedKmh: buffer.readUInt16BE(base + 34) / 10,\n        headwaySec: buffer.readUInt16BE(base + 36),\n        loopOccupancyPercent: buffer.readUInt16BE(base + 38) / 10,\n        maxQueueLengthM: buffer.readUInt16BE(base + 40) / 10,\n        laneOccupancyPercent: buffer.readUInt16BE(base + 42) / 10,\n        vehicleSpacingM: buffer.readUInt16BE(base + 44) / 10,\n        trafficDensity: buffer.readUInt16BE(base + 46) / 10,\n        reserved: buffer.slice(base + 48, base + 50).toString('hex')\n    });\n}\nmsg.topic = \"sss/traffic/data\"\nmsg.payload = {\n    gatewayID: \"0250f4000000\",\n    deviceId,\n    frameType: \"TrafficData\",\n    timestamp: timestampDate.toISOString(),\n    numEntries,\n    entries,\n    raw: buffer.toString('hex').toUpperCase()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 260,
+        "wires": [
+            [
+                "87484b8f66d74de2",
+                "124731794a305244",
+                "7904136a1fb9a41e"
+            ]
+        ]
+    },
+    {
+        "id": "01807809ab010e1a",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "name": "Region Data",
+        "func": "const buffer = msg.payload;\n\nif (\n    buffer[0] !== 0x55 || buffer[1] !== 0xAA || buffer[2] !== 0x55 || buffer[3] !== 0xBB ||\n    buffer.at(-4) !== 0x55 || buffer.at(-3) !== 0xCC || buffer.at(-2) !== 0x55 || buffer.at(-1) !== 0xDD\n) return null;\n\nif (buffer[4] !== 0x02) return null;\n\nconst deviceId = buffer.slice(8, 28).toString('ascii').replace(/\\0/g, '');\nconst timestamp = buffer.slice(28, 36).readBigUInt64BE();\nconst timestampDate = new Date(Number(timestamp));\nconst numEntries = buffer.readUInt16BE(36);\nconst entries = [];\n\nfor (let i = 0; i < numEntries; i++) {\n    const base = 38 + i * 12;\n    if (base + 12 > buffer.length - 4) break;\n\n    entries.push({\n        statisticalPeriodSec: buffer.readUInt16BE(base),\n        directionBelonging: buffer.readUInt16BE(base + 2),\n        leftTurnPercent: buffer.readUInt16BE(base + 4) / 10,\n        straightPercent: buffer.readUInt16BE(base + 6) / 10,\n        rightTurnPercent: buffer.readUInt16BE(base + 8) / 10,\n        reserved: buffer.slice(base + 10, base + 12).toString('hex')\n    });\n}\nmsg.topic = \"sss/machine/data\"\nmsg.payload = {\n    gatewayID:\"0250f4000000\",\n    deviceId,\n    frameType: \"RegionData\",\n    timestamp: timestampDate.toISOString(),\n    numEntries,\n    entries,\n    raw: buffer.toString('hex').toUpperCase()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 220,
+        "wires": [
+            [
+                "933cdbff4372a677",
+                "124731794a305244",
+                "7904136a1fb9a41e"
+            ]
+        ]
+    },
+    {
+        "id": "fed31a11fb2f7176",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "name": "Pass Data",
+        "func": "const buffer = msg.payload;\n\nif (\n    buffer[0] !== 0x55 || buffer[1] !== 0xAA || buffer[2] !== 0x55 || buffer[3] !== 0xBB ||\n    buffer.at(-4) !== 0x55 || buffer.at(-3) !== 0xCC || buffer.at(-2) !== 0x55 || buffer.at(-1) !== 0xDD\n) return null;\n\nif (buffer[4] !== 0x05) return null;\n\nconst deviceId = buffer.slice(8, 28).toString('ascii').replace(/\\0/g, '');\nconst timestamp = buffer.slice(28, 36).readBigUInt64BE();\nconst timestampDate = new Date(Number(timestamp));\nconst numEntries = buffer.readUInt16BE(36);\nconst entries = [];\n\nfor (let i = 0; i < numEntries; i++) {\n    const base = 38 + i * 22;\n    if (base + 22 > buffer.length - 4) break;\n\n    const passingTime = buffer.slice(base + 8, base + 16).readBigUInt64BE();\n\n    entries.push({\n        laneNo: buffer.readUInt16BE(base),\n        crossSectionPosM: buffer.readUInt16BE(base + 2) / 10,\n        speedKmh: buffer.readUInt16BE(base + 4) / 10,\n        headwaySec: buffer.readUInt16BE(base + 6),\n        passingTime: new Date(Number(passingTime)).toISOString(),\n        occupancyDurationSec: buffer.readUInt16BE(base + 16),\n        occupancyStatus: buffer[base + 18],\n        reserved: buffer.slice(base + 19, base + 22).toString('hex')\n    });\n}\nmsg.topic = \"sss/pass/data\"\nmsg.payload = {\n    gatewayID: \"0250f4000000\",\n    deviceId,\n    frameType: \"PassData\",\n    timestamp: timestampDate.toISOString(),\n    numEntries,\n    entries,\n    raw: buffer.toString('hex').toUpperCase()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 340,
+        "wires": [
+            [
+                "f388ce03e56385fb",
+                "124731794a305244",
+                "7904136a1fb9a41e"
+            ]
+        ]
+    },
+    {
+        "id": "7a92af94e6d3f8ac",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "name": "Object Data",
+        "func": "const buffer = msg.payload;\n\nif (\n    buffer[0] !== 0x55 || buffer[1] !== 0xAA || buffer[2] !== 0x55 || buffer[3] !== 0xBB ||\n    buffer.at(-4) !== 0x55 || buffer.at(-3) !== 0xCC || buffer.at(-2) !== 0x55 || buffer.at(-1) !== 0xDD\n) return null;\n\nif (buffer[4] !== 0x01) return null;\n\nconst deviceId = buffer.slice(8, 28).toString('ascii').replace(/\\0/g, '');\nconst timestamp = buffer.slice(28, 36).readBigUInt64BE();\nconst timestampDate = new Date(Number(timestamp));\nconst numEntries = buffer.readUInt16BE(36);\nconst entries = [];\n\nfor (let i = 0; i < numEntries; i++) {\n    const base = 38 + i * 66;\n    if (base + 66 > buffer.length - 4) break;\n\n    entries.push({\n        targetId: `${buffer.slice(base, base + 8).readBigUInt64BE()}_${buffer.readUInt16BE(base + 8)}`,\n        laneNo: buffer[base + 10],\n        targetType: buffer[base + 11],\n        color: buffer[base + 12],\n        plateNumber: buffer.slice(base + 13, base + 25).toString('ascii').replace(/\\0/g, ''),\n        xCoordM: buffer.readInt16BE(base + 25) / 10,\n        yCoordM: buffer.readInt16BE(base + 27) / 10,\n        speedKmh: buffer.readInt16BE(base + 29) / 10,\n        imageX: buffer.readInt16BE(base + 31),\n        imageY: buffer.readInt16BE(base + 33),\n        pixelHeight: buffer.readInt16BE(base + 35),\n        pixelWidth: buffer.readInt16BE(base + 37),\n        azimuthDeg: buffer.readInt16BE(base + 39) / 10,\n        lengthM: buffer[base + 41] / 10,\n        widthM: buffer[base + 42] / 10,\n        heightM: buffer[base + 43] / 10,\n        parked: buffer[base + 44] === 1,\n        speedX: buffer.readInt16BE(base + 45) / 10,\n        speedY: buffer.readInt16BE(base + 47) / 10,\n        accelDir: buffer.readInt16BE(base + 49) / 100,\n        accelX: buffer.readInt16BE(base + 51) / 100,\n        accelY: buffer.readInt16BE(base + 53) / 100,\n        longitude: buffer.readInt32BE(base + 55) * 1e-7,\n        latitude: buffer.readInt32BE(base + 59) * 1e-7,\n        reserved: buffer.slice(base + 63, base + 65).toString('hex')\n    });\n}\nmsg.topic = \"sss/object/data\"\nmsg.payload = {\n    gatewayID: \"0250f4000000\",\n    deviceId,\n    frameType: \"ObjectData\",\n    timestamp: timestampDate.toISOString(),\n    numEntries,\n    entries,\n    raw: buffer.toString('hex').toUpperCase()\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 180,
+        "wires": [
+            [
+                "5bb44cf259f8bd22",
+                "124731794a305244",
+                "7904136a1fb9a41e"
+            ]
+        ]
+    },
+    {
+        "id": "5bb44cf259f8bd22",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 20",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "933cdbff4372a677",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 21",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "87484b8f66d74de2",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 22",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "f388ce03e56385fb",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 24",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "f8d058ce457e57e2",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "name": "debug 23",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 740,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "22e468862edcbab7",
+        "type": "inject",
+        "z": "19b3c3c4c41722e8",
+        "name": "Inject Test Data",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"header\":{\"frameType\":5,\"checksum\":48,\"deviceId\":\"5353535f4b75616c614c69706973310000000000\",\"timestamp\":\"2025-08-18T11:04:18.771Z\",\"numberOfTargets\":1},\"target\":{\"lane\":11,\"class\":\"C3\",\"speed\":55}}",
+        "payloadType": "json",
+        "x": 300,
+        "y": 540,
+        "wires": [
+            [
+                "124731794a305244",
+                "b32aa7593bdfbe5b"
+            ]
+        ]
+    },
+    {
+        "id": "124731794a305244",
+        "type": "function",
+        "z": "19b3c3c4c41722e8",
+        "d": true,
+        "name": "Build Daily Path",
+        "func": "let now = new Date();\nlet dateStr = now.toISOString().split(\"T\")[0];  // YYYY-MM-DD\n\n// Pick folder name dynamically based on frameType\nlet frameType = msg.payload.frameType || \"UnknownData\";  \nlet folder = \"/mnt/ssd/\" + frameType + \"/\" + dateStr;\nlet filename = folder + \"/data.json\";\n\n// Wrap record with timestamp\nlet record = {\n    timestamp: now.toISOString(),\n    data: msg.payload\n};\n\nmsg.filename = filename;\nmsg.payload = JSON.stringify(record) + \"\\n\";\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 540,
+        "wires": [
+            [
+                "b3d27894a9133b22",
+                "b32aa7593bdfbe5b"
+            ]
+        ]
+    },
+    {
+        "id": "b3d27894a9133b22",
+        "type": "file",
+        "z": "19b3c3c4c41722e8",
+        "d": true,
+        "name": "Write to SSD",
+        "filename": "filename",
+        "filenameType": "msg",
+        "appendNewline": false,
+        "createDir": true,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 790,
+        "y": 540,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "b32aa7593bdfbe5b",
+        "type": "debug",
+        "z": "19b3c3c4c41722e8",
+        "d": true,
+        "name": "Debug Output",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 620,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "06d983564e80fa76",
+        "type": "comment",
+        "z": "19b3c3c4c41722e8",
+        "name": "save data /mnt/ssd/paadData",
+        "info": "",
+        "x": 320,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "7904136a1fb9a41e",
+        "type": "mqtt out",
+        "z": "19b3c3c4c41722e8",
+        "name": "",
+        "topic": "",
+        "qos": "",
+        "retain": "",
+        "respTopic": "",
+        "contentType": "",
+        "userProps": "",
+        "correl": "",
+        "expiry": "",
+        "broker": "bbef3c3cecc6faf8",
+        "x": 670,
+        "y": 120,
+        "wires": []
+    }
+]

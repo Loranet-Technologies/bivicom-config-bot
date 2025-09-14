@@ -1,0 +1,32 @@
+# Include documentation
+include README.md
+include LICENSE
+include TEST_BUILD.md
+include requirements.txt
+
+# Include configuration files
+include *.json
+include *.sh
+include *.env.example
+
+# Include build scripts
+include build*.sh
+include build*.bat
+include test_build.sh
+
+# Include documentation
+recursive-include docs *.md
+
+# Include example files
+recursive-include uploaded_files *.json
+
+# Exclude development files
+exclude .gitignore
+exclude .env
+exclude venv/
+exclude build_env/
+exclude __pycache__/
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude * .git*

@@ -500,11 +500,11 @@ aggressive_disk_cleanup() {
     
     # Clean up package cache
     print_status "Cleaning package cache..."
-    if execute_command "sudo apt-get clean" "Clean apt cache"; then
+    if execute_command "sudo apt clean" "Clean apt cache"; then
         print_success "Package cache cleaned"
     fi
     
-    if execute_command "sudo apt-get autoremove -y" "Remove unused packages"; then
+    if execute_command "sudo apt autoremove -y" "Remove unused packages"; then
         print_success "Unused packages removed"
     fi
     
@@ -601,7 +601,7 @@ aggressive_disk_cleanup() {
     
     # Clean up old kernels (if on Ubuntu/Debian)
     print_status "Cleaning old kernels..."
-    if execute_command "sudo apt-get autoremove --purge -y" "Remove old kernels"; then
+    if execute_command "sudo apt autoremove --purge -y" "Remove old kernels"; then
         print_success "Old kernels removed"
     fi
     
@@ -611,6 +611,7 @@ aggressive_disk_cleanup() {
     
     print_success "Aggressive disk cleanup completed"
 }
+
 
 # Function to ensure sufficient disk space with cleanup if needed
 ensure_sufficient_disk_space() {
@@ -657,15 +658,11 @@ install_curl() {
     
     print_status "curl not found, installing..."
     
-    # Try different package managers
-    if execute_command "opkg update && opkg install curl" "Install curl via opkg"; then
-        print_success "curl installed via opkg"
-    elif execute_command "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections && apt update && DEBIAN_FRONTEND=noninteractive apt install -y curl" "Install curl via apt"; then
+    # Use only apt package manager
+    if execute_command "sudo apt update && sudo apt install -y curl" "Install curl via apt"; then
         print_success "curl installed via apt"
-    elif execute_command "yum install -y curl" "Install curl via yum"; then
-        print_success "curl installed via yum"
     else
-        print_error "Failed to install curl"
+        print_error "Failed to install curl via apt"
         return 1
     fi
     
@@ -812,9 +809,25 @@ check_internet_dns() {
 install_docker() {
     print_status "Installing Docker..."
     
-    # Check if Docker is already installed
+    # Check if both Docker and Docker Compose are already installed
+    docker_installed=false
+    compose_installed=false
+    
     if execute_command "docker --version" "Check if Docker is installed"; then
-        print_success "Docker is already installed"
+        docker_installed=true
+        docker_version=$(execute_command "docker --version" "Get Docker version")
+        print_success "Docker is already installed: $docker_version"
+    fi
+    
+    if execute_command "docker compose version" "Check if Docker Compose plugin is installed"; then
+        compose_installed=true
+        compose_version=$(execute_command "docker compose version" "Get Docker Compose version")
+        print_success "Docker Compose plugin is already installed: $compose_version"
+    fi
+    
+    # If both are installed, we're done
+    if [ "$docker_installed" = true ] && [ "$compose_installed" = true ]; then
+        print_success "Both Docker and Docker Compose plugin are already installed"
         return 0
     fi
     
@@ -824,72 +837,71 @@ install_docker() {
         return 1
     fi
     
-    print_status "Docker not found, installing..."
+    print_status "Installing Docker and Docker Compose plugin..."
     
     # Check if apt is available (Debian/Ubuntu system)
     if execute_command "which apt" "Check if Debian/Ubuntu system"; then
         print_status "Detected Debian/Ubuntu system, installing Docker via apt..."
         
-        # Set non-interactive environment for debconf
-        print_status "Setting non-interactive environment for package installation..."
-        if execute_command "export DEBIAN_FRONTEND=noninteractive && export DEBIAN_PRIORITY=critical" "Set non-interactive frontend"; then
-            print_success "Non-interactive environment set"
-        fi
-        
-        # Configure debconf to be non-interactive
-        if execute_command "echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections" "Configure debconf non-interactive"; then
-            print_success "debconf configured for non-interactive mode"
-        fi
-        
-        # Update package list
-        if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt update" "Update package list"; then
-            print_success "Package list updated"
+        # Update apt index
+        print_status "Updating apt index..."
+        if execute_command "sudo apt-get update -y" "Update apt index"; then
+            print_success "Apt index updated"
         else
-            print_warning "Failed to update package list"
+            print_warning "Failed to update apt index"
         fi
         
-        # Try to install Docker from default repositories first
-        print_status "Trying to install Docker from default repositories..."
-        if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y docker.io" "Install Docker from default repo"; then
-            print_success "Docker installed from default repository"
+        # Install required packages
+        print_status "Installing required packages..."
+        if execute_command "sudo apt-get install -y ca-certificates curl gnupg lsb-release" "Install Docker dependencies"; then
+            print_success "Docker dependencies installed"
         else
-            print_warning "Docker not available in default repositories, trying official Docker repository..."
-            
-            # Install required packages for official Docker repo
-            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y apt-transport-https ca-certificates curl gnupg lsb-release" "Install Docker dependencies"; then
-                print_success "Docker dependencies installed"
-            else
-                print_warning "Failed to install some dependencies"
-            fi
-            
-            # Add Docker's official GPG key (non-interactive)
-            if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg" "Add Docker GPG key"; then
-                print_success "Docker GPG key added"
-            else
-                print_warning "Failed to add Docker GPG key"
-            fi
-            
-            # Add Docker repository
-            if execute_command "echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null" "Add Docker repository"; then
-                print_success "Docker repository added"
-            else
-                print_warning "Failed to add Docker repository"
-            fi
-            
-            # Update package list again
-            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt update" "Update package list with Docker repo"; then
-                print_success "Package list updated with Docker repository"
-            else
-                print_warning "Failed to update package list with Docker repository"
-            fi
-            
-            # Install Docker CE
-            if execute_command "sudo DEBIAN_FRONTEND=noninteractive apt install -y docker-ce docker-ce-cli containerd.io" "Install Docker CE"; then
-                print_success "Docker CE installed"
-            else
-                print_error "Failed to install Docker CE"
-                return 1
-            fi
+            print_error "Failed to install Docker dependencies"
+            return 1
+        fi
+        
+        # Add Docker's official GPG key
+        print_status "Adding Docker's official GPG key..."
+        if execute_command "sudo install -m 0755 -d /etc/apt/keyrings" "Create keyrings directory"; then
+            print_success "Keyrings directory created"
+        fi
+        
+        if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg" "Add Docker GPG key"; then
+            print_success "Docker GPG key added"
+        else
+            print_error "Failed to add Docker GPG key"
+            return 1
+        fi
+        
+        if execute_command "sudo chmod a+r /etc/apt/keyrings/docker.gpg" "Set GPG key permissions"; then
+            print_success "GPG key permissions set"
+        fi
+        
+        # Set up the stable Docker repository
+        print_status "Setting up Docker repository..."
+        if execute_command "echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null" "Add Docker repository"; then
+            print_success "Docker repository added"
+        else
+            print_error "Failed to add Docker repository"
+            return 1
+        fi
+        
+        # Update apt index again
+        print_status "Updating apt index with Docker repository..."
+        if execute_command "sudo apt-get update -y" "Update apt index with Docker repo"; then
+            print_success "Apt index updated with Docker repository"
+        else
+            print_error "Failed to update apt index with Docker repository"
+            return 1
+        fi
+        
+        # Install Docker engine, CLI, containerd, and Docker Compose plugin
+        print_status "Installing Docker engine, CLI, containerd, and Docker Compose plugin..."
+        if execute_command "sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" "Install Docker packages"; then
+            print_success "Docker packages installed successfully"
+        else
+            print_error "Failed to install Docker packages"
+            return 1
         fi
         
     else
@@ -897,18 +909,18 @@ install_docker() {
         return 1
     fi
     
-    # Start and enable Docker service
-    print_status "Starting Docker service..."
-    if execute_command "sudo systemctl start docker" "Start Docker service"; then
-        print_success "Docker service started"
-    else
-        print_warning "Failed to start Docker service (may not be systemd-based)"
-    fi
-    
+    # Enable and start Docker service
+    print_status "Enabling and starting Docker service..."
     if execute_command "sudo systemctl enable docker" "Enable Docker service"; then
         print_success "Docker service enabled"
     else
         print_warning "Failed to enable Docker service (may not be systemd-based)"
+    fi
+    
+    if execute_command "sudo systemctl start docker" "Start Docker service"; then
+        print_success "Docker service started"
+    else
+        print_warning "Failed to start Docker service (may not be systemd-based)"
     fi
     
     # Add user to docker group (if not root)
@@ -930,13 +942,23 @@ install_docker() {
         fi
     fi
     
-    # Verify installation
+    # Verify Docker installation
     print_status "Verifying Docker installation..."
     if execute_command "docker --version" "Verify Docker installation"; then
         docker_version=$(execute_command "docker --version" "Get Docker version")
         print_success "Docker installation verified: $docker_version"
     else
         print_error "Docker installation verification failed"
+        return 1
+    fi
+    
+    # Verify Docker Compose plugin installation
+    print_status "Verifying Docker Compose plugin installation..."
+    if execute_command "docker compose version" "Verify Docker Compose plugin"; then
+        compose_version=$(execute_command "docker compose version" "Get Docker Compose version")
+        print_success "Docker Compose plugin verified: $compose_version"
+    else
+        print_error "Docker Compose plugin verification failed"
         return 1
     fi
     
@@ -948,7 +970,7 @@ install_docker() {
         print_warning "Docker test failed (may need internet connection or container registry access)"
     fi
     
-    print_success "Docker installation completed successfully"
+    print_success "Docker and Docker Compose plugin installation completed successfully"
 }
 
 # Function to install Node-RED with Docker Compose
@@ -1152,7 +1174,7 @@ NODE_RED_LOG_LEVEL=info'
             
             # Perform more aggressive cleanup on retry
             print_status "Performing additional cleanup for retry..."
-            execute_command "sudo apt-get clean" "Clean apt cache"
+            execute_command "sudo apt clean" "Clean apt cache"
             execute_command "sudo rm -rf /tmp/*" "Clean /tmp directory"
             
             # Check disk space again after cleanup
@@ -1693,7 +1715,7 @@ install_nodered_nodes() {
         # Force GitHub download
         print_status "Forcing GitHub download for package.json..."
         if download_package_from_github; then
-            package_file="/tmp/package.json"
+            package_file="/home/admin/package.json"
             package_source="GitHub download (forced)"
         else
             print_error "Failed to download package.json from GitHub"
@@ -1739,7 +1761,7 @@ install_nodered_nodes() {
         else
             print_status "No local package.json found, downloading from GitHub..."
             if download_package_from_github; then
-                package_file="/tmp/package.json"
+                package_file="/home/admin/package.json"
                 package_source="GitHub download (auto-detected)"
             else
                 print_warning "Failed to download package.json from GitHub, using default nodes"
@@ -1753,19 +1775,21 @@ install_nodered_nodes() {
         print_status "Found package.json: $package_file (source: $package_source)"
         
         # Copy package.json to the remote system (if not already downloaded)
-        if [ "$package_source" != "GitHub download" ]; then
+        if [[ "$package_source" != *"GitHub download"* ]]; then
             print_status "Copying package.json to remote system..."
-            if copy_to_remote "$package_file" "/tmp/package.json" "Copy package.json"; then
+            if copy_to_remote "$package_file" "/home/admin/package.json" "Copy package.json"; then
                 print_success "package.json copied successfully"
             else
                 print_error "Failed to copy package.json"
                 return 1
             fi
+        else
+            print_status "Package.json already downloaded to remote system, skipping copy"
         fi
         
         # Copy package.json to Node-RED container
         print_status "Copying package.json to Node-RED container..."
-        if execute_command "sudo docker cp /tmp/package.json nodered:/data/package.json" "Copy package.json to container"; then
+        if execute_command "sudo docker cp /home/admin/package.json nodered:/data/package.json" "Copy package.json to container"; then
             print_success "package.json copied to Node-RED container"
         else
             print_error "Failed to copy package.json to Node-RED container"
@@ -1842,9 +1866,9 @@ download_flows_from_github() {
         return 1
     fi
     
-    # Download flows.json
+    # Download flows.json to a safer location
     print_status "Downloading flows.json from GitHub..."
-    if execute_command "curl -s -L -o /tmp/flows.json '$github_flows_url'" "Download flows.json"; then
+    if execute_command "curl -s -L -o /home/admin/flows.json '$github_flows_url'" "Download flows.json"; then
         print_success "flows.json downloaded successfully"
     else
         print_error "Failed to download flows.json from GitHub"
@@ -1852,7 +1876,16 @@ download_flows_from_github() {
     fi
     
     # Verify the downloaded file
-    if [ ! -f "/tmp/flows.json" ] || [ ! -s "/tmp/flows.json" ]; then
+    print_status "Verifying downloaded flows file..."
+    execute_command "ls -la /home/admin/flows.json" "Check flows file details"
+    execute_command "wc -c /home/admin/flows.json" "Check flows file size"
+    execute_command "test -f /home/admin/flows.json && echo 'File exists' || echo 'File missing'" "Test flows file existence"
+    execute_command "test -s /home/admin/flows.json && echo 'File not empty' || echo 'File is empty'" "Test flows file size"
+    
+    # Use a more explicit verification
+    if execute_command "test -f /home/admin/flows.json && test -s /home/admin/flows.json" "Verify flows file exists and not empty"; then
+        print_success "Flows file verification passed"
+    else
         print_error "Downloaded flows.json is empty or missing"
         return 1
     fi
@@ -1882,9 +1915,9 @@ download_package_from_github() {
         return 1
     fi
     
-    # Download package.json
+    # Download package.json to a safer location
     print_status "Downloading package.json from GitHub..."
-    if execute_command "curl -s -L -o /tmp/package.json '$github_package_url'" "Download package.json"; then
+    if execute_command "curl -s -L -o /home/admin/package.json '$github_package_url'" "Download package.json"; then
         print_success "package.json downloaded successfully"
     else
         print_error "Failed to download package.json from GitHub"
@@ -1892,7 +1925,16 @@ download_package_from_github() {
     fi
     
     # Verify the downloaded file
-    if [ ! -f "/tmp/package.json" ] || [ ! -s "/tmp/package.json" ]; then
+    print_status "Verifying downloaded file..."
+    execute_command "ls -la /home/admin/package.json" "Check file details"
+    execute_command "wc -c /home/admin/package.json" "Check file size"
+    execute_command "test -f /home/admin/package.json && echo 'File exists' || echo 'File missing'" "Test file existence"
+    execute_command "test -s /home/admin/package.json && echo 'File not empty' || echo 'File is empty'" "Test file size"
+    
+    # Use a more explicit verification
+    if execute_command "test -f /home/admin/package.json && test -s /home/admin/package.json" "Verify file exists and not empty"; then
+        print_success "File verification passed"
+    else
         print_error "Downloaded package.json is empty or missing"
         return 1
     fi
@@ -1920,7 +1962,7 @@ import_nodered_flows() {
         # Force GitHub download
         print_status "Forcing GitHub download for flows..."
         if download_flows_from_github; then
-            flows_file="/tmp/flows.json"
+            flows_file="/home/admin/flows.json"
             flows_source="GitHub download (forced)"
         else
             print_error "Failed to download flows from GitHub"
@@ -1966,7 +2008,7 @@ import_nodered_flows() {
         else
             print_status "No local flows.json found, downloading from GitHub..."
             if download_flows_from_github; then
-                flows_file="/tmp/flows.json"
+                flows_file="/home/admin/flows.json"
                 flows_source="GitHub download (auto-detected)"
             else
                 print_error "Failed to download flows from GitHub and no local flows.json found"
@@ -1982,14 +2024,16 @@ import_nodered_flows() {
     print_status "Found flows file: $flows_file (source: $flows_source)"
     
     # Copy flows.json to the remote system (if not already downloaded)
-    if [ "$flows_source" != "GitHub download" ]; then
+    if [[ "$flows_source" != *"GitHub download"* ]]; then
         print_status "Copying flows.json to remote system..."
-        if copy_to_remote "$flows_file" "/tmp/flows.json" "Copy flows file"; then
+        if copy_to_remote "$flows_file" "/home/admin/flows.json" "Copy flows file"; then
             print_success "Flows file copied successfully"
         else
             print_error "Failed to copy flows file"
             return 1
         fi
+    else
+        print_status "Flows.json already downloaded to remote system, skipping copy"
     fi
     
     # Stop Node-RED container to import flows
@@ -2011,7 +2055,7 @@ import_nodered_flows() {
     
     # Copy new flows to container
     print_status "Importing new flows to Node-RED container..."
-    if execute_command "sudo docker cp /tmp/flows.json nodered:/data/flows.json" "Import flows to container"; then
+    if execute_command "sudo docker cp /home/admin/flows.json nodered:/data/flows.json" "Import flows to container"; then
         print_success "Flows imported to Node-RED container"
     else
         print_error "Failed to import flows to container"
@@ -2049,7 +2093,7 @@ import_nodered_flows() {
     
     # Clean up temporary files
     print_status "Cleaning up temporary files..."
-    execute_command "rm -f /tmp/flows.json" "Clean up flows file"
+    execute_command "rm -f /home/admin/flows.json" "Clean up flows file"
     
     print_success "Node-RED flows import completed"
 }
@@ -2098,9 +2142,7 @@ TS_ACCEPT_DNS=true'
     
     # Create Docker Compose file for Tailscale
     print_status "Creating Tailscale Docker Compose file..."
-    local tailscale_compose='version: "3.8"
-
-services:
+    local tailscale_compose='services:
   tailscale:
     image: tailscale/tailscale:latest
     container_name: tailscale
@@ -2114,11 +2156,7 @@ services:
       - /dev/net/tun
     volumes:
       - ./:/var/lib/tailscale
-    network_mode: host
-
-networks:
-  default:
-    driver: bridge'
+    network_mode: host'
     
     # Write Docker Compose file
     if execute_command "echo '$tailscale_compose' | sudo tee /data/tailscale/docker-compose.yml > /dev/null" "Create Tailscale compose file"; then
@@ -2171,19 +2209,19 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24
 ### Start Tailscale
 ```bash
 cd /data/tailscale
-sudo docker-compose up -d
+sudo docker compose up -d
 ```
 
 ### Stop Tailscale
 ```bash
 cd /data/tailscale
-sudo docker-compose down
+sudo docker compose down
 ```
 
 ### Restart Tailscale
 ```bash
 cd /data/tailscale
-sudo docker-compose restart
+sudo docker compose restart
 ```
 
 ### Check Status
@@ -2193,7 +2231,7 @@ sudo docker exec tailscale tailscale status
 
 ### View Logs
 ```bash
-sudo docker-compose logs -f tailscale
+sudo docker compose logs -f tailscale
 ```
 
 ### Manual Route Advertisement
@@ -2225,13 +2263,13 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
 
 ### Container Not Starting
 1. Check if Docker is running: `sudo systemctl status docker`
-2. Check logs: `sudo docker-compose logs tailscale`
+2. Check logs: `sudo docker compose logs tailscale`
 3. Verify permissions: `ls -la /data/tailscale/`
 
 ### Routes Not Advertised
 1. Verify routes in `.env` file
 2. Check Tailscale status: `sudo docker exec tailscale tailscale status`
-3. Restart container: `sudo docker-compose restart`
+3. Restart container: `sudo docker compose restart`
 
 ### Authentication Issues
 1. Verify auth key in `.env` file
@@ -2269,7 +2307,7 @@ For more information, visit:
     
     # Start Tailscale container using Docker Compose
     print_status "Starting Tailscale container with Docker Compose..."
-    if execute_command "cd /data/tailscale && sudo docker-compose up -d" "Start Tailscale container"; then
+    if execute_command "cd /data/tailscale && sudo docker compose up -d" "Start Tailscale container"; then
         print_success "Tailscale container started with Docker Compose"
     else
         print_error "Failed to start Tailscale container"
@@ -2297,12 +2335,12 @@ For more information, visit:
     fi
     
     print_success "Tailscale installation completed"
-    print_info "Tailscale is now managed with Docker Compose in /data/tailscale/"
-    print_info "Documentation: /data/tailscale/README.md"
-    print_info "Note: Routes are not automatically advertised. Configure routes manually if needed:"
-    print_info "  - Edit /data/tailscale/.env to add TS_ROUTES and TS_EXTRA_ARGS"
-    print_info "  - Or use: docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24"
-    print_info "Management: cd /data/tailscale && sudo docker-compose [up|down|restart|logs]"
+    print_status "Tailscale is now managed with Docker Compose in /data/tailscale/"
+    print_status "Documentation: /data/tailscale/README.md"
+    print_status "Note: Routes are not automatically advertised. Configure routes manually if needed:"
+    print_status "  - Edit /data/tailscale/.env to add TS_ROUTES and TS_EXTRA_ARGS"
+    print_status "  - Or use: docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24"
+    print_status "Management: cd /data/tailscale && sudo docker compose [up|down|restart|logs]"
 }
 
 # =============================================================================
@@ -2331,73 +2369,162 @@ reset_device() {
     
     print_success "UCI is available, proceeding with device reset..."
     
-    # Step 1: Stop and remove all Docker containers (if Docker is installed)
-    print_status "Step 1: Checking Docker installation and stopping containers..."
+    # Check if Docker is installed (used throughout the function)
+    docker_installed=false
     if execute_command "which docker >/dev/null 2>&1" "Check if Docker is installed"; then
-        print_success "Docker is installed, proceeding with container cleanup"
+        docker_installed=true
+    fi
+    
+    # Step 1: Check if Docker is installed and perform cleanup
+    print_status "Step 1: Checking Docker installation and performing cleanup..."
+    if [ "$docker_installed" = true ]; then
+        print_success "Docker is installed, proceeding with comprehensive cleanup"
         
+        # Stop all containers
         if execute_command "sudo docker stop \$(sudo docker ps -aq) 2>/dev/null || true" "Stop all containers"; then
             print_success "All containers stopped"
         fi
         
+        # Remove all containers
         if execute_command "sudo docker rm \$(sudo docker ps -aq) 2>/dev/null || true" "Remove all containers"; then
             print_success "All containers removed"
         fi
-    else
-        print_warning "Docker is not installed, skipping container cleanup"
-    fi
-    
-    # Step 2: Remove all Docker images (if Docker is installed)
-    if execute_command "which docker >/dev/null 2>&1" "Check Docker for image cleanup"; then
-        print_status "Step 2: Removing all Docker images..."
+        
+        # Remove all images
         if execute_command "sudo docker rmi \$(sudo docker images -q) 2>/dev/null || true" "Remove all images"; then
             print_success "All Docker images removed"
         fi
         
-        # Step 3: Remove Docker volumes
-        print_status "Step 3: Removing Docker volumes..."
+        # Remove all volumes
         if execute_command "sudo docker volume rm \$(sudo docker volume ls -q) 2>/dev/null || true" "Remove all volumes"; then
             print_success "All Docker volumes removed"
         fi
         
-        # Step 4: Remove Docker networks (except default)
-        print_status "Step 4: Removing custom Docker networks..."
+        # Remove custom networks (except default)
         if execute_command "sudo docker network rm \$(sudo docker network ls -q --filter type=custom) 2>/dev/null || true" "Remove custom networks"; then
             print_success "Custom Docker networks removed"
         fi
     else
-        print_warning "Docker not installed, skipping image/volume/network cleanup"
+        print_warning "Docker is not installed, skipping Docker cleanup"
     fi
     
-    # Step 5: Remove Docker data directories
-    print_status "Step 5: Removing Docker data directories..."
+    # Step 2: Stop and remove all services
+    print_status "Step 2: Stopping and removing all services..."
+    
+    # Stop all systemd services that might be running
+    services_to_stop=("docker" "nodered" "portainer" "restreamer" "tailscale" "nginx" "apache2" "mysql" "postgresql" "redis" "mongodb")
+    
+    for service in "${services_to_stop[@]}"; do
+        print_status "Checking service: $service"
+        if execute_command "systemctl is-active $service >/dev/null 2>&1" "Check if $service is active"; then
+            print_status "Stopping service: $service"
+            if execute_command "sudo systemctl stop $service" "Stop $service"; then
+                print_success "Service $service stopped"
+            else
+                print_warning "Failed to stop service $service"
+            fi
+            
+            if execute_command "sudo systemctl disable $service" "Disable $service"; then
+                print_success "Service $service disabled"
+            else
+                print_warning "Failed to disable service $service"
+            fi
+        else
+            print_status "Service $service is not active, skipping"
+        fi
+    done
+    
+    # Special handling for Docker - also stop and disable the socket
+    if [ "$docker_installed" = true ]; then
+        print_status "Stopping and disabling Docker socket..."
+        if execute_command "sudo systemctl stop docker.socket" "Stop Docker socket"; then
+            print_success "Docker socket stopped"
+        fi
+        
+        if execute_command "sudo systemctl disable docker.socket" "Disable Docker socket"; then
+            print_success "Docker socket disabled"
+        fi
+        
+        # Also stop containerd if it's running
+        if execute_command "sudo systemctl stop containerd" "Stop containerd"; then
+            print_success "Containerd stopped"
+        fi
+        
+        if execute_command "sudo systemctl disable containerd" "Disable containerd"; then
+            print_success "Containerd disabled"
+        fi
+    fi
+    
+    # Stop any remaining Docker containers that might be running
+    print_status "Ensuring all Docker containers are stopped..."
+    if [ "$docker_installed" = true ]; then
+        if execute_command "sudo docker ps -q" "Check for running containers"; then
+            running_containers=$(execute_command "sudo docker ps -q" "Get running container IDs")
+            if [ -n "$running_containers" ]; then
+                print_status "Force stopping remaining containers..."
+                if execute_command "sudo docker stop $running_containers" "Force stop containers"; then
+                    print_success "All remaining containers stopped"
+                fi
+            fi
+        fi
+    fi
+    
+    print_success "All services stopped and disabled"
+    
+    # Step 3: Remove Docker data directories
+    print_status "Step 3: Removing Docker data directories..."
     if execute_command "sudo rm -rf /data/nodered /data/portainer /data/restreamer /data/tailscale 2>/dev/null || true" "Remove data directories"; then
         print_success "Docker data directories removed"
     fi
     
-    # Step 6: Remove user from docker group
-    print_status "Step 6: Removing user from docker group..."
+    # Step 4: Remove user from docker group
+    print_status "Step 4: Removing user from docker group..."
     if execute_command "sudo deluser admin docker 2>/dev/null || true" "Remove admin from docker group"; then
         print_success "Admin removed from docker group"
     fi
     
-    # Step 7: Uninstall Docker (if installed)
-    print_status "Step 7: Checking and uninstalling Docker..."
-    if execute_command "which docker >/dev/null 2>&1" "Check if Docker needs uninstalling"; then
-        print_status "Docker is installed, proceeding with uninstallation..."
-        if execute_command "sudo apt-get remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true" "Uninstall Docker packages"; then
-            print_success "Docker packages uninstalled"
+    # Step 5: Uninstall Docker packages (if Docker was installed)
+    if [ "$docker_installed" = true ]; then
+        print_status "Step 5: Uninstalling Docker packages..."
+        
+        # Stop all Docker services first
+        print_status "Ensuring all Docker services are stopped before uninstallation..."
+        execute_command "sudo systemctl stop docker.service docker.socket containerd 2>/dev/null || true" "Stop all Docker services"
+        
+        # Try to remove Docker CE packages first
+        if execute_command "sudo apt remove -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true" "Uninstall Docker CE packages"; then
+            print_success "Docker CE packages uninstalled"
         fi
         
-        if execute_command "sudo apt-get autoremove -y 2>/dev/null || true" "Remove unused packages"; then
+        # Try to remove Ubuntu Docker.io package
+        if execute_command "sudo apt remove -y docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc 2>/dev/null || true" "Uninstall Docker.io packages"; then
+            print_success "Docker.io packages uninstalled"
+        fi
+        
+        # Remove any remaining Docker-related packages
+        if execute_command "sudo apt remove -y docker-ce-rootless-extras 2>/dev/null || true" "Remove Docker rootless extras"; then
+            print_success "Docker rootless extras removed"
+        fi
+        
+        if execute_command "sudo apt autoremove -y 2>/dev/null || true" "Remove unused packages"; then
             print_success "Unused packages removed"
         fi
+        
+        # Purge Docker packages to remove configuration files
+        if execute_command "sudo apt purge -y docker.io docker-ce docker-ce-cli containerd.io 2>/dev/null || true" "Purge Docker packages"; then
+            print_success "Docker packages purged"
+        fi
+        
+        # Final cleanup
+        if execute_command "sudo apt autoremove -y && sudo apt autoclean 2>/dev/null || true" "Final package cleanup"; then
+            print_success "Final package cleanup completed"
+        fi
     else
-        print_warning "Docker is not installed, skipping uninstallation"
+        print_status "Step 5: Skipping Docker uninstallation (Docker was not installed)"
     fi
     
-    # Step 8: Configure network to REVERSE mode (LTE WAN)
-    print_status "Step 8: Configuring network to REVERSE mode (LTE WAN)..."
+    # Step 6: Configure network to REVERSE mode (LTE WAN)
+    print_status "Step 6: Configuring network to REVERSE mode (LTE WAN)..."
     print_warning "IMPORTANT: This will configure the device to use LTE WAN while keeping LAN accessible"
     configure_network_settings_reverse
     
@@ -2412,49 +2539,61 @@ reset_device() {
         fi
     fi
     
-    # Step 9: Reset password to admin/admin
-    print_status "Step 9: Resetting password to admin/admin..."
+    # Step 7: Reset password to admin/admin
+    print_status "Step 7: Resetting password to admin/admin..."
     configure_password_admin
     
-    # Step 10: Clean up any remaining Docker files
-    print_status "Step 10: Cleaning up remaining Docker files..."
-    if execute_command "sudo rm -rf /var/lib/docker 2>/dev/null || true" "Remove Docker lib directory"; then
-        print_success "Docker lib directory removed"
+    # Step 8: Clean up any remaining Docker files (if Docker was installed)
+    if [ "$docker_installed" = true ]; then
+        print_status "Step 8: Cleaning up remaining Docker files..."
+        
+        # Remove Docker data directories
+        if execute_command "sudo rm -rf /var/lib/docker 2>/dev/null || true" "Remove Docker lib directory"; then
+            print_success "Docker lib directory removed"
+        fi
+        
+        if execute_command "sudo rm -rf /etc/docker 2>/dev/null || true" "Remove Docker config directory"; then
+            print_success "Docker config directory removed"
+        fi
+        
+        # Remove Docker socket and other runtime files
+        if execute_command "sudo rm -rf /var/run/docker* 2>/dev/null || true" "Remove Docker runtime files"; then
+            print_success "Docker runtime files removed"
+        fi
+        
+        # Remove Docker systemd service files
+        if execute_command "sudo rm -f /lib/systemd/system/docker* 2>/dev/null || true" "Remove Docker systemd files"; then
+            print_success "Docker systemd files removed"
+        fi
+        
+        # Remove Docker binaries
+        if execute_command "sudo rm -f /usr/bin/docker* /usr/local/bin/docker* 2>/dev/null || true" "Remove Docker binaries"; then
+            print_success "Docker binaries removed"
+        fi
+        
+        # Reload systemd to reflect removed services
+        if execute_command "sudo systemctl daemon-reload" "Reload systemd daemon"; then
+            print_success "Systemd daemon reloaded"
+        fi
+    else
+        print_status "Step 8: Skipping Docker file cleanup (Docker was not installed)"
     fi
     
-    if execute_command "sudo rm -rf /etc/docker 2>/dev/null || true" "Remove Docker config directory"; then
-        print_success "Docker config directory removed"
-    fi
-    
-    # Step 11: Commit UCI changes and ensure network is properly configured
-    print_status "Step 11: Committing UCI changes and ensuring network stability..."
-    if execute_command "sudo uci commit network" "Commit network configuration"; then
-        print_success "Network configuration committed"
-    fi
-    
-    # Verify network interfaces are properly configured
-    if execute_command "sudo uci show network | grep -E 'network\.(wan|lan)\.' | head -10" "Verify network configuration"; then
-        print_success "Network interfaces verified"
-    fi
-    
-    # Step 12: Perform aggressive disk cleanup
-    print_status "Step 12: Performing aggressive disk cleanup..."
-    aggressive_disk_cleanup
-    
-    # Step 13: Restart network services
-    print_status "Step 13: Restarting network services..."
-    if execute_command "sudo /etc/init.d/network restart" "Restart network service"; then
-        print_success "Network service restarted"
+    # Step 9: Final network service restart (after all cleanup)
+    print_status "Step 9: Final network service restart (after all cleanup)..."
+    if execute_command "sudo /etc/init.d/network restart" "Final network service restart"; then
+        print_success "Final network service restart completed"
     fi
     
     print_success "Device reset completed successfully!"
     print_warning "Device has been reset to default state:"
     print_warning "- All Docker containers, images, and volumes removed"
+    print_warning "- Docker service completely uninstalled and removed"
+    print_warning "- All services stopped and disabled"
     print_warning "- Network configured to REVERSE mode (LTE WAN)"
     print_warning "- Password reset to admin/admin"
     print_warning "- IP address reset to 192.168.1.1"
     print_warning "- All custom configurations removed"
-    print_warning "- Aggressive disk cleanup performed (logs, cache, temp files)"
     print_warning ""
     print_warning "IMPORTANT: Device should remain accessible at 192.168.1.1"
     print_warning "If you cannot connect, wait 2-3 minutes for network services to fully restart"

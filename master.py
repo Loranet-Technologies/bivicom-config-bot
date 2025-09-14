@@ -124,42 +124,47 @@ class NetworkBot:
                     "timeout": 60
                 },
                 {
-                    "name": "4. Install Docker (after network config)",
+                    "name": "4. Install curl",
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-curl"],
+                    "timeout": 60
+                },
+                {
+                    "name": "5. Install Docker (after network config)",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-docker"],
                     "timeout": 300
                 },
                 {
-                    "name": "5. Install All Docker Services",
+                    "name": "6. Install All Docker Services",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-services"],
                     "timeout": 300
                 },
                 {
-                    "name": "6. Install Node-RED Nodes",
+                    "name": "7. Install Node-RED Nodes",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-nodered-nodes"],
                     "timeout": 180
                 },
                 {
-                    "name": "7. Import Node-RED Flows",
+                    "name": "8. Import Node-RED Flows",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "import-nodered-flows"],
                     "timeout": 120
                 },
                 {
-                    "name": "8. Update Node-RED Authentication",
+                    "name": "9. Update Node-RED Authentication",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "update-nodered-auth", self.password],
                     "timeout": 60
                 },
                 {
-                    "name": "9. Install Tailscale VPN Router",
+                    "name": "10. Install Tailscale VPN Router",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale"],
                     "timeout": 180
                 },
                 {
-                    "name": "10. Configure Network REVERSE",
+                    "name": "11. Configure Network REVERSE",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "reverse"],
                     "timeout": 60
                 },
                 {
-                    "name": "11. Change Device Password",
+                    "name": "12. Change Device Password",
                     "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "set-password", self.password],
                     "timeout": 60
                 }
@@ -287,20 +292,21 @@ def main():
     print("Bivicom Network Bot")
     print("==================")
     print(f"This bot continuously scans for {args.ip} and runs a complete")
-    print("11-step network configuration sequence when the device is found:")
+    print("12-step network configuration sequence when the device is found:")
     print()
     print("Sequence:")
     print("1. Configure Network FORWARD")
     print("2. Check DNS Connectivity")
     print("3. Fix DNS Configuration")
-    print("4. Install Docker")
-    print("5. Install All Docker Services (Node-RED, Portainer, Restreamer)")
-    print("6. Install Node-RED Nodes")
-    print("7. Import Node-RED Flows")
-    print("8. Update Node-RED Authentication (uses configured password)")
-    print("9. Install Tailscale VPN Router")
-    print("10. Configure Network REVERSE")
-    print("11. Change Device Password (uses configured password)")
+    print("4. Install curl")
+    print("5. Install Docker")
+    print("6. Install All Docker Services (Node-RED, Portainer, Restreamer)")
+    print("7. Install Node-RED Nodes")
+    print("8. Import Node-RED Flows")
+    print("9. Update Node-RED Authentication (uses configured password)")
+    print("10. Install Tailscale VPN Router")
+    print("11. Configure Network REVERSE")
+    print("12. Change Device Password (uses configured password)")
     print()
     
     # Create and run the bot

@@ -4,9 +4,22 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ## 🆕 Recent Updates
 
+### v2.4 - File Upload Feature with Smart Source Logic
+- **📁 File Upload Support**: Upload custom flows.json and package.json files directly from GUI
+- **✅ Node-RED Structure Validation**: Comprehensive validation of Node-RED file structures
+- **🔍 flows.json Validation**: Validates array format, required fields (id, type), and Node-RED flow structure
+- **📦 package.json Validation**: Validates object format, required fields (name, version), and dependency structure
+- **🎯 Smart Upload Logic**: Uses uploaded files when both are available, falls back to user selection
+- **📦 Package Source Selection**: Independent package.json source selection (auto, local, github, uploaded)
+- **🔄 Uploaded Files Integration**: Seamless integration with existing flows source options
+- **🗑️ File Management**: Clear uploaded files functionality with status indicators
+- **📂 Upload Directory**: Automatic creation of uploaded_files directory for file storage
+- **⚠️ Detailed Error Messages**: Clear validation error messages for invalid file structures
+- **🧹 Simplified Interface**: Removed GitHub URL field for cleaner, more focused GUI
+
 ### v2.3 - Enhanced GUI with Visual Progress Indicators
 - **✅ Visual Step Indicators**: Real-time checkmarks and completion status for each process
-- **📊 Scrollable Progress Display**: Visual tracking of all 11 configuration steps
+- **📊 Scrollable Progress Display**: Visual tracking of all 12 configuration steps
 - **🔄 Real-time Output Streaming**: Script output displayed in both GUI and Python terminal
 - **🎯 Step Highlighting**: Current step highlighted in blue, completed steps show green checkmarks
 - **❌ Error Visualization**: Failed steps clearly marked with red X indicators
@@ -90,9 +103,14 @@ python3 gui.py
 # Features:
 # - Real-time log display with color-coded messages
 # - Visual step indicators with checkmarks and completion status
-# - Scrollable progress display for all 11 configuration steps
+# - Scrollable progress display for all 12 configuration steps
 # - Real-time script output streaming to both GUI and terminal
 # - Username/password configuration fields with show/hide toggle
+# - File upload support for custom flows.json and package.json files
+# - Node-RED structure validation for uploaded files with detailed error messages
+# - Smart upload logic that uses uploaded files when both are available
+# - Independent package.json source selection (auto, local, github, uploaded)
+# - Status indicators showing validation results and file upload status
 # - Sound notifications for success/error events
 # - System notifications for completion
 # - Reset device functionality
@@ -124,7 +142,7 @@ python3 gui.py
 
 ### 🤖 Network Bot (`master.py`)
 - **Continuous Scanning**: Automatically detects Bivicom devices at 192.168.1.1
-- **10-Step Configuration**: Complete automated deployment sequence (cleanup-disk removed)
+- **12-Step Configuration**: Complete automated deployment sequence (cleanup-disk removed)
 - **Comprehensive Logging**: Full command output saved to timestamped log files
 - **Verbose Mode**: Real-time detailed output with `--verbose` flag
 - **Error Handling**: Graceful failure recovery and retry logic
@@ -135,9 +153,17 @@ python3 gui.py
 ### 🖥️ GUI Application (`gui.py`)
 - **Real-time Logging**: Color-coded log messages with timestamps
 - **Visual Step Indicators**: Real-time checkmarks (✓), failures (✗), and current step highlighting (●)
-- **Scrollable Progress Display**: Visual tracking of all 11 configuration steps
+- **Scrollable Progress Display**: Visual tracking of all 12 configuration steps
 - **Real-time Output Streaming**: Script output displayed in both GUI and Python terminal
 - **User Configuration**: Username/password input fields with show/hide toggle
+- **File Upload Support**: Upload custom flows.json and package.json files with validation
+- **Node-RED Structure Validation**: Comprehensive validation of Node-RED file structures
+- **flows.json Validation**: Validates array format, required fields (id, type), and Node-RED flow structure
+- **package.json Validation**: Validates object format, required fields (name, version), and dependency structure
+- **Smart Upload Logic**: Uses uploaded files when both are available, falls back to user selection
+- **Package Source Selection**: Independent package.json source selection (auto, local, github, uploaded)
+- **File Management**: Clear uploaded files functionality with status indicators
+- **Smart Source Selection**: Automatic flows source switching when files are uploaded
 - **Sound Notifications**: Audio feedback for success/error events (cross-platform)
 - **System Notifications**: Desktop notifications for completion/errors
 - **Reset Functionality**: Complete device reset to default state
@@ -156,23 +182,88 @@ python3 gui.py
 - **Safe Disk Cleanup**: Preserves Docker images while freeing space
 - **Device Reset**: Complete factory reset functionality
 
-### 🎯 11-Step Automated Sequence
+### 🎯 12-Step Automated Sequence
 
 When a device is detected, the bot automatically runs:
 
 1. **Configure Network FORWARD** - Set up temporary DHCP WAN for deployment
 2. **Check DNS Connectivity** - Verify internet access
 3. **Fix DNS Configuration** - Ensure proper DNS resolution
-4. **Install Docker** - Set up container runtime
-5. **Install All Docker Services** - Deploy Node-RED, Portainer, Restreamer
-6. **Install Node-RED Nodes** - Add custom nodes (ffmpeg, queue-gate, sqlite, serialport)
-7. **Import Node-RED Flows** - Load your radar and automation flows
-8. **Update Node-RED Authentication** - Set secure password (L@ranet2025)
-9. **Install Tailscale VPN Router** - Set up secure mesh networking
-10. **Configure Network REVERSE** - Switch to final LTE WAN configuration
-11. **Change Device Password** - Set secure device password (L@ranet2025)
+4. **Install curl** - Install curl package for GitHub downloads
+5. **Install Docker** - Set up container runtime
+6. **Install All Docker Services** - Deploy Node-RED, Portainer, Restreamer
+7. **Install Node-RED Nodes** - Add custom nodes (ffmpeg, queue-gate, sqlite, serialport)
+8. **Import Node-RED Flows** - Load your radar and automation flows
+9. **Update Node-RED Authentication** - Set secure password (L@ranet2025)
+10. **Install Tailscale VPN Router** - Set up secure mesh networking
+11. **Configure Network REVERSE** - Switch to final LTE WAN configuration
+12. **Change Device Password** - Set secure device password (L@ranet2025)
 
 > **Note**: The cleanup-disk step has been removed from the automated sequence to preserve Docker images during deployment.
+
+### 📁 File Upload Feature
+
+The GUI now supports uploading custom `flows.json` and `package.json` files for Node-RED configuration:
+
+#### How to Use File Upload:
+1. **Start the GUI**: Run `python3 gui.py`
+2. **Configure Sources**: 
+   - Set "Flows Source" to your preferred option (auto, local, github, uploaded)
+   - Set "Package Source" to your preferred option (auto, local, github, uploaded)
+3. **Upload Files**: 
+   - Click "Choose File" next to "Upload flows.json" to select your custom flows file
+   - Click "Choose File" next to "Upload package.json" to select your custom package file
+4. **Automatic Validation**: Files are automatically validated for Node-RED structure
+5. **Status Indicators**: Green checkmarks (✓) show successfully uploaded and validated files
+6. **Smart Logic**: System automatically uses uploaded files when both are available
+7. **Clear Files**: Use "Clear Uploaded Files" button to remove uploaded files
+
+#### File Requirements and Validation:
+
+**flows.json Requirements:**
+- Must be a JSON array (not an object)
+- Each item must be a JSON object with `id` and `type` fields
+- Must contain at least one tab or node
+- Tab items must have a `label` field
+- Supports standard Node-RED node types (inject, debug, function, switch, etc.)
+- Supports custom node types and groups
+
+**package.json Requirements:**
+- Must be a JSON object (not an array)
+- Must have `name` and `version` fields (non-empty strings)
+- Optional `dependencies` object with package names and versions
+- Optional `node-red` object for Node-RED specific configuration
+- All dependency names and versions must be non-empty strings
+
+**Validation Process:**
+- Files are validated for proper JSON format first
+- Then validated for Node-RED specific structure requirements
+- Detailed error messages are shown for validation failures
+- Files are copied to `uploaded_files/` directory only after successful validation
+
+#### Smart Upload Logic:
+The system uses intelligent logic to determine which files to use:
+
+**When both flows.json and package.json are uploaded:**
+- Both flows source and package source are automatically set to "uploaded"
+- The bot uses your uploaded files for both flows and package installation
+
+**When only flows.json is uploaded:**
+- Flows source is automatically set to "uploaded"
+- Package source uses your manual selection (auto, local, github)
+
+**When only package.json is uploaded:**
+- Package source is automatically set to "uploaded"
+- Flows source uses your manual selection (auto, local, github)
+
+**When no files are uploaded:**
+- Both sources use your manual selection
+- System falls back to auto-detection, local files, or GitHub as configured
+
+#### Integration with Configuration:
+- Uploaded files take precedence over manual source selection
+- Files are passed to the network configuration script for deployment
+- The bot logs which sources are being used for transparency
 
 ## 🏗️ Architecture
 
@@ -400,7 +491,7 @@ The GUI application provides real-time visual feedback for each configuration st
 - **Dual Display**: See progress in both GUI and terminal simultaneously
 
 #### Progress Tracking
-- **Scrollable Display**: All 11 steps visible in a scrollable panel
+- **Scrollable Display**: All 12 steps visible in a scrollable panel
 - **Current Step Highlighting**: Active step highlighted in blue
 - **Completion Status**: Immediate visual feedback when steps complete
 - **Error Visualization**: Failed steps clearly marked with red X

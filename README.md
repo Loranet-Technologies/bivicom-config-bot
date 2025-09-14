@@ -6,7 +6,7 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ```bash
 # Clone and install from source
-git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
+git clone https://github.com/Ogawa-Kazuma/bivicom-config-bot.git
 cd bivicom-config-bot
 pip install -r requirements.txt
 pip install plyer>=2.0.0
@@ -119,7 +119,7 @@ The easiest way to install and use the Bivicom Configuration Bot:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
+git clone https://github.com/Ogawa-Kazuma/bivicom-config-bot.git
 cd bivicom-config-bot
 
 # Install core dependencies
@@ -149,7 +149,7 @@ For development or if you want the latest features:
 
 ```bash
 # Clone the repository
-git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
+git clone https://github.com/Ogawa-Kazuma/bivicom-config-bot.git
 cd bivicom-config-bot
 
 # Create virtual environment

@@ -4,6 +4,14 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ## 🆕 Recent Updates
 
+### v1.0.1 - Test Build Documentation & Script
+- **📋 Test Build Documentation**: Comprehensive `TEST_BUILD.md` with build system overview
+- **🧪 Test Build Script**: Automated `test_build.sh` script for testing build processes
+- **🔧 Build System Testing**: Complete testing framework for standalone application builds
+- **📊 Build Validation**: Automated validation of PyInstaller builds across platforms
+- **🚀 Cross-Platform Support**: Testing for Windows, macOS, and Linux builds
+- **📝 Build Documentation**: Detailed instructions for manual and automated builds
+
 ### v2.5 - Comprehensive Testing & Production Validation
 - **🧪 Complete Function Testing**: All 20+ network_config.sh functions tested and validated
 - **✅ Production Ready**: Comprehensive testing confirms all functions working correctly
@@ -191,6 +199,16 @@ python3 gui_enhanced.py
 - **Non-interactive Installation**: Debconf configuration for automated setup
 - **Safe Disk Cleanup**: Preserves Docker images while freeing space
 - **Device Reset**: Complete factory reset functionality
+
+### 🧪 Test Build System (`test_build.sh` & `TEST_BUILD.md`)
+- **Automated Build Testing**: Complete testing framework for standalone application builds
+- **Cross-Platform Validation**: Automated testing for Windows, macOS, and Linux builds
+- **PyInstaller Integration**: Comprehensive testing of PyInstaller build processes
+- **Build Documentation**: Detailed `TEST_BUILD.md` with build system overview and instructions
+- **Build Validation**: Automated validation of executable creation and functionality
+- **Environment Testing**: Virtual environment setup and dependency validation
+- **Build Artifacts Management**: Automated cleanup and organization of build outputs
+- **Error Detection**: Comprehensive error checking and reporting for build failures
 
 ### 🎯 12-Step Automated Sequence
 
@@ -400,6 +418,8 @@ bivicom-config-bot/
 ├── master.py              # Network bot with comprehensive logging (312 lines)
 ├── network_config.sh      # Configuration script (2508 lines)
 ├── gui_enhanced.py        # Enhanced GUI with visual progress indicators (3000+ lines)
+├── test_build.sh          # Automated test build script (executable)
+├── TEST_BUILD.md          # Test build documentation and instructions
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Configuration file
 ├── logs/                  # Automatic log file directory
@@ -420,6 +440,30 @@ bivicom-config-bot/
 pip install pyinstaller
 pyinstaller --onefile --windowed master.py
 ```
+
+### Test Build System
+```bash
+# Run automated test build
+./test_build.sh
+
+# Test build with verbose output
+./test_build.sh --verbose
+
+# Test specific build components
+./test_build.sh --test-env
+./test_build.sh --test-deps
+./test_build.sh --test-build
+
+# Clean test environment
+./test_build.sh --clean
+```
+
+The test build system provides comprehensive validation of the build process:
+- **Environment Testing**: Validates Python virtual environment setup
+- **Dependency Testing**: Checks all required packages and versions
+- **Build Testing**: Tests PyInstaller executable creation
+- **Cross-Platform Support**: Automated testing for multiple platforms
+- **Documentation**: Complete build system documentation in `TEST_BUILD.md`
 
 ### Testing
 ```bash
@@ -576,6 +620,7 @@ The GUI application provides real-time visual feedback for each configuration st
 
 ## 📚 Documentation
 
+- **[TEST_BUILD.md](TEST_BUILD.md)** - Test build system documentation and instructions
 - **[WARP.md](WARP.md)** - WARP IDE development guide
 - **[docs/CLAUDE.md](docs/CLAUDE.md)** - Claude AI development guide
 - **[LICENSE](LICENSE)** - Project license

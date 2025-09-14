@@ -2,7 +2,31 @@
 
 A comprehensive network automation toolkit for configuring and deploying infrastructure on Bivicom IoT devices. This project combines device discovery, SSH automation, UCI network configuration, and infrastructure deployment into a unified workflow.
 
+## ⚡ **Quick Install & Use**
+
+```bash
+# Install from PyPI
+pip install bivicom-config-bot
+
+# Run the network bot
+bivicom-bot --help
+
+# Run the GUI application
+bivicom-gui
+```
+
+**That's it!** Your Bivicom Configuration Bot is ready to use. See the [Installation](#installation) section below for more options.
+
 ## 🆕 Recent Updates
+
+### v1.0.3 - PyPI Package Distribution
+- **📦 PyPI Package**: Available on PyPI as `bivicom-config-bot`
+- **🚀 Easy Installation**: One-command install with `pip install bivicom-config-bot`
+- **🔧 Global Commands**: `bivicom-bot` and `bivicom-gui` available globally after installation
+- **📋 Optional Dependencies**: Support for GUI, build tools, and development dependencies
+- **🎯 Professional Packaging**: Complete Python package structure with proper metadata
+- **📚 Enhanced Documentation**: Updated README with PyPI installation and usage instructions
+- **🌐 Cross-Platform**: Works on Windows, macOS, and Linux via pip
 
 ### v1.0.1 - Test Build Documentation & Script
 - **📋 Test Build Documentation**: Comprehensive `TEST_BUILD.md` with build system overview
@@ -78,9 +102,40 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 - `sshpass` utility for password-based SSH authentication
 
 ### Installation
+
+#### 🚀 **PyPI Package (Recommended)**
+The easiest way to install and use the Bivicom Configuration Bot:
+
+```bash
+# Install from PyPI
+pip install bivicom-config-bot
+
+# Install with GUI support
+pip install bivicom-config-bot[gui]
+
+# Install with build tools
+pip install bivicom-config-bot[build]
+
+# Install with all optional dependencies
+pip install bivicom-config-bot[gui,build,dev]
+```
+
+**After installation, you can use the commands globally:**
+```bash
+# Network bot
+bivicom-bot --help
+bivicom-bot --ip 192.168.1.1 --verbose
+
+# GUI application
+bivicom-gui
+```
+
+#### 📦 **From Source (Development)**
+For development or if you want the latest features:
+
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
 cd bivicom-config-bot
 
 # Create virtual environment
@@ -95,7 +150,32 @@ pip install -r requirements.txt
 
 ### Basic Usage
 
-#### Network Bot (Recommended)
+#### 🚀 **PyPI Package Commands (Recommended)**
+After installing from PyPI, use these global commands:
+
+```bash
+# Network bot - automatically scans for 192.168.1.1
+bivicom-bot
+
+# Custom IP and scan interval
+bivicom-bot --ip 192.168.1.100 --interval 5
+
+# Verbose mode - shows full output from all commands
+bivicom-bot --verbose
+
+# Custom IP with verbose logging
+bivicom-bot --ip 192.168.1.100 --verbose
+
+# Help
+bivicom-bot --help
+
+# GUI application
+bivicom-gui
+```
+
+#### 📦 **Source Code Usage (Development)**
+If running from source code:
+
 ```bash
 # Start the network bot - automatically scans for 192.168.1.1
 python3 master.py
@@ -111,10 +191,7 @@ python3 master.py --ip 192.168.1.100 --verbose
 
 # Help
 python3 master.py --help
-```
 
-#### GUI Application (User-Friendly)
-```bash
 # Start the GUI application
 python3 gui_enhanced.py
 
@@ -134,6 +211,45 @@ python3 gui_enhanced.py
 # - Reset device functionality
 # - Cross-platform compatibility (Windows, macOS, Linux)
 ```
+
+## 📦 **PyPI Package Features**
+
+### **Easy Installation**
+```bash
+# One-command installation
+pip install bivicom-config-bot
+
+# Global command availability
+bivicom-bot --help
+bivicom-gui
+```
+
+### **Command-Line Tools**
+- **`bivicom-bot`**: Network automation bot with comprehensive logging
+- **`bivicom-gui`**: User-friendly GUI application with visual progress indicators
+
+### **Optional Dependencies**
+```bash
+# GUI support (notifications, sound alerts)
+pip install bivicom-config-bot[gui]
+
+# Build tools (PyInstaller, standalone executables)
+pip install bivicom-config-bot[build]
+
+# Development tools (testing, linting, formatting)
+pip install bivicom-config-bot[dev]
+
+# All optional features
+pip install bivicom-config-bot[gui,build,dev]
+```
+
+### **Package Information**
+- **Package Name**: `bivicom-config-bot`
+- **Version**: 1.0.2+
+- **Python Support**: 3.7+
+- **Platforms**: Windows, macOS, Linux
+- **License**: MIT
+- **PyPI URL**: https://pypi.org/project/bivicom-config-bot/
 
 #### Manual Configuration Script
 ```bash

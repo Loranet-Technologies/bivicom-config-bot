@@ -5,28 +5,39 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 ## ⚡ **Quick Install & Use**
 
 ```bash
-# Install from PyPI
-pip install bivicom-config-bot
+# Clone and install from source
+git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
+cd bivicom-config-bot
+pip install -r requirements.txt
+pip install plyer>=2.0.0
 
 # Run the network bot
-bivicom-bot --help
+python master.py --help
 
 # Run the GUI application
-bivicom-gui
+python gui_enhanced.py
 ```
 
 **That's it!** Your Bivicom Configuration Bot is ready to use. See the [Installation](#installation) section below for more options.
 
 ## 🆕 Recent Updates
 
-### v1.0.3 - PyPI Package Distribution
-- **📦 PyPI Package**: Available on PyPI as `bivicom-config-bot`
+### v1.0.4 - GUI Window Visibility Fix
+- **🖥️ GUI Window Fix**: Fixed GUI window geometry issues that caused invisible windows
+- **🔧 Window Validation**: Added automatic validation of saved window geometry
+- **📱 Window Visibility**: Enhanced window visibility with deiconify, lift, and topmost attributes
+- **🛠️ Configuration Reset**: Added ability to reset invalid GUI configuration
+- **📚 Updated Documentation**: Corrected installation instructions and added GUI troubleshooting
+- **🌐 Cross-Platform**: Improved GUI compatibility across Windows, macOS, and Linux
+
+### v1.0.3 - PyPI Package Distribution (Planned)
+- **📦 PyPI Package**: Planned for PyPI as `bivicom-config-bot`
 - **🚀 Easy Installation**: One-command install with `pip install bivicom-config-bot`
 - **🔧 Global Commands**: `bivicom-bot` and `bivicom-gui` available globally after installation
 - **📋 Optional Dependencies**: Support for GUI, build tools, and development dependencies
 - **🎯 Professional Packaging**: Complete Python package structure with proper metadata
-- **📚 Enhanced Documentation**: Updated README with PyPI installation and usage instructions
-- **🌐 Cross-Platform**: Works on Windows, macOS, and Linux via pip
+- **📚 Enhanced Documentation**: Updated README with installation and usage instructions
+- **🌐 Cross-Platform**: Works on Windows, macOS, and Linux
 
 ### v1.0.1 - Test Build Documentation & Script
 - **📋 Test Build Documentation**: Comprehensive `TEST_BUILD.md` with build system overview
@@ -103,32 +114,35 @@ bivicom-gui
 
 ### Installation
 
-#### 🚀 **PyPI Package (Recommended)**
+#### 🚀 **From Source (Recommended)**
 The easiest way to install and use the Bivicom Configuration Bot:
 
 ```bash
-# Install from PyPI
-pip install bivicom-config-bot
+# Clone the repository
+git clone https://github.com/Loranet-Technologies/bivicom-config-bot.git
+cd bivicom-config-bot
 
-# Install with GUI support
-pip install bivicom-config-bot[gui]
+# Install core dependencies
+pip install -r requirements.txt
 
-# Install with build tools
-pip install bivicom-config-bot[build]
+# Install GUI support (optional)
+pip install plyer>=2.0.0
 
-# Install with all optional dependencies
-pip install bivicom-config-bot[gui,build,dev]
+# Install build tools (optional)
+pip install pyinstaller>=4.0
 ```
 
-**After installation, you can use the commands globally:**
+**After installation, you can run the applications:**
 ```bash
 # Network bot
-bivicom-bot --help
-bivicom-bot --ip 192.168.1.1 --verbose
+python master.py --help
+python master.py --ip 192.168.1.1 --verbose
 
 # GUI application
-bivicom-gui
+python gui_enhanced.py
 ```
+
+> **Note**: The PyPI package is not yet available. Use the source installation method above.
 
 #### 📦 **From Source (Development)**
 For development or if you want the latest features:
@@ -150,27 +164,27 @@ pip install -r requirements.txt
 
 ### Basic Usage
 
-#### 🚀 **PyPI Package Commands (Recommended)**
-After installing from PyPI, use these global commands:
+#### 🚀 **Source Installation Commands (Recommended)**
+After installing from source, use these commands:
 
 ```bash
 # Network bot - automatically scans for 192.168.1.1
-bivicom-bot
+python master.py
 
 # Custom IP and scan interval
-bivicom-bot --ip 192.168.1.100 --interval 5
+python master.py --ip 192.168.1.100 --interval 5
 
 # Verbose mode - shows full output from all commands
-bivicom-bot --verbose
+python master.py --verbose
 
 # Custom IP with verbose logging
-bivicom-bot --ip 192.168.1.100 --verbose
+python master.py --ip 192.168.1.100 --verbose
 
 # Help
-bivicom-bot --help
+python master.py --help
 
 # GUI application
-bivicom-gui
+python gui_enhanced.py
 ```
 
 #### 📦 **Source Code Usage (Development)**
@@ -633,6 +647,28 @@ All network_config.sh functions have been thoroughly tested and validated:
 ## 🔍 Troubleshooting
 
 ### Common Issues
+
+#### GUI Window Not Visible
+If the GUI window doesn't appear or is too small to see:
+
+```bash
+# Check if GUI is running
+tasklist | findstr python
+
+# Stop any running GUI processes
+taskkill /f /im python.exe
+
+# Reset GUI configuration
+del gui_config.json
+
+# Run GUI again
+python gui_enhanced.py
+```
+
+**Common GUI Issues:**
+- **Window too small**: The GUI now automatically fixes invalid window geometry
+- **Window off-screen**: The GUI forces proper positioning and visibility
+- **tkinter errors**: Ensure Python 3.7+ is installed with tkinter support
 
 #### SSH Connection Failed
 ```bash

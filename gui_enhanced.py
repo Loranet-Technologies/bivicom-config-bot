@@ -3027,9 +3027,15 @@ class EnhancedNetworkBotGUI:
                 with open(config_file, 'r') as f:
                     saved_config = json.load(f)
                     
-                # Restore window geometry
+                # Restore window geometry (only if valid)
                 if 'window_geometry' in saved_config:
-                    self.root.geometry(saved_config['window_geometry'])
+                    geometry = saved_config['window_geometry']
+                    # Check if geometry is valid (not 1x1 or off-screen)
+                    if 'x' in geometry and '1x1' not in geometry:
+                        self.root.geometry(geometry)
+                    else:
+                        # Use default geometry if saved geometry is invalid
+                        self.root.geometry("1600x1000+100+100")
                     
                 # Restore other settings
                 self.config.update({k: v for k, v in saved_config.items() 
@@ -3050,10 +3056,14 @@ class EnhancedNetworkBotGUI:
         except Exception as e:
             self.log_message(f"❌ Cannot check GUI window status: {e}", "ERROR")
         
-        # Try to bring window to front
+        # Try to bring window to front and ensure visibility
         try:
-            self.root.lift()
-            self.root.focus_force()
+            # Force window to be visible
+            self.root.deiconify()  # Restore if minimized
+            self.root.lift()       # Bring to front
+            self.root.focus_force() # Force focus
+            self.root.attributes('-topmost', True)  # Make topmost temporarily
+            self.root.after(1000, lambda: self.root.attributes('-topmost', False))  # Remove topmost after 1 second
             self.log_message("🔍 Attempted to bring GUI window to front", "INFO")
         except Exception as e:
             self.log_message(f"❌ Cannot bring window to front: {e}", "ERROR")

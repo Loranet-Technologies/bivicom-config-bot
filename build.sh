@@ -27,7 +27,7 @@ pyinstaller --onefile --windowed \
     --name="Bivicom Configurator V1" \
     --add-data=".env:." \
     --add-data="LICENSE:." \
-    gui.py
+    gui_enhanced.py
 
 # Clean up
 echo "🧹 Cleaning up..."

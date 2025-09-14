@@ -108,7 +108,7 @@ python3 master.py --help
 #### GUI Application (User-Friendly)
 ```bash
 # Start the GUI application
-python3 gui.py
+python3 gui_enhanced.py
 
 # Features:
 # - Real-time log display with color-coded messages
@@ -216,7 +216,7 @@ When a device is detected, the bot automatically runs:
 The GUI now supports uploading custom `flows.json` and `package.json` files for Node-RED configuration:
 
 #### How to Use File Upload:
-1. **Start the GUI**: Run `python3 gui.py`
+1. **Start the GUI**: Run `python3 gui_enhanced.py`
 2. **Configure Sources**: 
    - Set "Flows Source" to your preferred option (auto, local, github, uploaded)
    - Set "Package Source" to your preferred option (auto, local, github, uploaded)
@@ -399,7 +399,7 @@ The script automatically installs these nodes:
 bivicom-config-bot/
 ├── master.py              # Network bot with comprehensive logging (312 lines)
 ├── network_config.sh      # Configuration script (2508 lines)
-├── gui.py                 # Enhanced GUI with visual progress indicators (1000+ lines)
+├── gui_enhanced.py        # Enhanced GUI with visual progress indicators (3000+ lines)
 ├── requirements.txt       # Python dependencies
 ├── .env                   # Configuration file
 ├── logs/                  # Automatic log file directory

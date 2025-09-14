@@ -1,0 +1,9 @@
+{
+  "window_geometry": "1400x1371+880+-1399",
+  "target_ip": "192.168.1.1",
+  "username": "admin",
+  "scan_interval": 10,
+  "auto_retry": true,
+  "sound_notifications": true,
+  "log_level": "ALL"
+}

@@ -142,8 +142,8 @@ pyinstaller --onefile unified_bivicom_bot_with_wan_config.py
 7. **Configuration Restore**: `restore_uci_backup_simple()` reverts to original config
 
 ### Advanced Network Reload Methods
-- **Primary**: `sudo /usr/sbin/network_config` (OpenWrt native tool)
-- **Secondary**: `sudo luci-reload network` (LuCI web interface reload)
+- **Primary**: `sudo luci-reload network` (LuCI web interface reload - same as Save & Apply)
+- **Secondary**: `sudo /usr/sbin/network_config` (OpenWrt native tool)
 - **Fallback**: `sudo /etc/init.d/network restart` (standard init script)
 
 ### Route Management Features  

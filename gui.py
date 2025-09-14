@@ -227,7 +227,7 @@ class GUIBotWrapper(NetworkBot):
                 },
                 "install-tailscale": {
                     "name": "Install Tailscale VPN Router",
-                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale"],
+                    "cmd": [self.script_path, "--remote", self.target_ip, self.username, self.password, "install-tailscale", self.tailscale_auth_key_var.get()],
                     "timeout": 180
                 },
                 "reverse": {
@@ -377,14 +377,63 @@ class GUIBotWrapper(NetworkBot):
         except Exception as e:
             self.log_message(f"❌ Error in network configuration sequence: {e}", "ERROR")
             return False
+    
+    def execute_single_command(self, command, *args):
+        """Execute a single command on the target device"""
+        try:
+            # Build command
+            cmd = [self.script_path, "--remote", self.target_ip, self.username, self.password, command]
+            if args:
+                cmd.extend(args)
+            
+            self.log_message(f"🔧 Executing: {' '.join(cmd)}", "INFO")
+            
+            # Execute command
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            
+            if result.returncode == 0:
+                self.log_message("✅ Command executed successfully", "SUCCESS")
+                if result.stdout:
+                    self.log_message(f"📤 Output: {result.stdout.strip()}", "INFO")
+                return True
+            else:
+                self.log_message(f"❌ Command failed with return code {result.returncode}", "ERROR")
+                if result.stderr:
+                    self.log_message(f"📤 Error: {result.stderr.strip()}", "ERROR")
+                return False
+                
+        except subprocess.TimeoutExpired:
+            self.log_message("⏰ Command timed out after 5 minutes", "ERROR")
+            return False
+        except Exception as e:
+            self.log_message(f"❌ Error executing command: {str(e)}", "ERROR")
+            return False
 
 class NetworkBotGUI:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("Bivicom Network Bot - Device Configuration")
-        self.root.geometry("1000x800")
-        self.root.minsize(900, 700)
-        self.root.configure(bg="#F5F5F5")  # Light gray background
+        self.root.geometry("1200x900")
+        self.root.minsize(1100, 800)
+        
+        # Modern color scheme
+        self.colors = {
+            'primary': '#2E86AB',      # Professional blue
+            'secondary': '#A23B72',    # Accent purple
+            'success': '#28A745',      # Green
+            'warning': '#FFC107',      # Amber
+            'danger': '#DC3545',       # Red
+            'info': '#17A2B8',         # Cyan
+            'light': '#F8F9FA',        # Light gray
+            'dark': '#343A40',         # Dark gray
+            'white': '#FFFFFF',        # White
+            'border': '#DEE2E6',       # Light border
+            'text_primary': '#212529', # Dark text
+            'text_secondary': '#6C757D', # Muted text
+            'background': '#F5F7FA'    # Main background
+        }
+        
+        self.root.configure(bg=self.colors['background'])
         
         # Set window icon if available
         try:
@@ -422,149 +471,466 @@ class NetworkBotGUI:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
     
     def create_widgets(self):
-        """Create and arrange GUI widgets"""
-        # Main frame
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        """Create and arrange GUI widgets with modern design"""
+        # Main container with padding
+        main_container = tk.Frame(self.root, bg=self.colors['background'])
+        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Configure grid weights for left-right layout
+        # Configure grid weights for 3-column layout with equal sizing
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=2)  # Left column (controls) - more space
-        main_frame.columnconfigure(1, weight=1)  # Right column (log) - half space
-        main_frame.rowconfigure(0, weight=1)
         
-        # Create left and right frames
-        left_frame = ttk.Frame(main_frame)  # Controls frame (left side)
-        left_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 10))
-        left_frame.columnconfigure(0, weight=1)
-        left_frame.rowconfigure(0, weight=1)
+        # Set equal column weights and uniform sizing
+        main_container.columnconfigure(0, weight=1, uniform="column")  # Column 1
+        main_container.columnconfigure(1, weight=1, uniform="column")  # Column 2
+        main_container.columnconfigure(2, weight=1, uniform="column")  # Column 3
+        main_container.rowconfigure(0, weight=1)
         
-        right_frame = ttk.Frame(main_frame)  # Log frame (right side)
-        right_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
-        right_frame.columnconfigure(0, weight=1)
-        right_frame.rowconfigure(0, weight=1)  # Log output
-        right_frame.rowconfigure(1, weight=0)  # Function selection (fixed height)
+        # Create header
+        self.create_header(main_container)
         
-        # Title for left panel (controls)
-        title_label = ttk.Label(left_frame, text="Bivicom Network Bot", 
-                               font=("Arial", 16, "bold"))
-        title_label.grid(row=0, column=0, pady=(0, 20))
+        # Create column 1 (Device Config + File Upload)
+        column1_panel = self.create_column1_panel(main_container)
         
-        # Target IP configuration frame
-        ip_frame = ttk.LabelFrame(left_frame, text="Target Device Configuration", padding="5")
-        ip_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        # Create column 2 (Tailscale + Control Buttons)
+        column2_panel = self.create_column2_panel(main_container)
         
-        ttk.Label(ip_frame, text="Target LAN IP:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        # Create column 3 (Log + Function Selection)
+        column3_panel = self.create_column3_panel(main_container)
+        
+        # Create footer
+        self.create_footer(main_container)
+    
+    def create_header(self, parent):
+        """Create modern header with title and status"""
+        header_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        header_frame.grid(row=0, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        header_frame.columnconfigure(0, weight=1)
+        
+        # Main title
+        title_label = tk.Label(header_frame, 
+                              text="🚀 Bivicom Network Bot", 
+                              font=("SF Pro Display", 10, "bold"),
+                              fg=self.colors['primary'],
+                              bg=self.colors['white'])
+        title_label.grid(row=0, column=0, pady=20, padx=30, sticky=tk.W)
+        
+        # Subtitle
+        subtitle_label = tk.Label(header_frame,
+                                 text="Professional Device Configuration & Management",
+                                 font=("SF Pro Text", 10),
+                                 fg=self.colors['text_secondary'],
+                                 bg=self.colors['white'])
+        subtitle_label.grid(row=1, column=0, pady=(0, 20), padx=30, sticky=tk.W)
+        
+        # Status indicator
+        self.status_frame = tk.Frame(header_frame, bg=self.colors['white'])
+        self.status_frame.grid(row=0, column=1, rowspan=2, padx=30, pady=20, sticky=tk.E)
+        
+        self.status_indicator = tk.Label(self.status_frame,
+                                        text="●",
+                                        font=("Arial", 10),
+                                        fg=self.colors['success'],
+                                        bg=self.colors['white'])
+        self.status_indicator.pack(side=tk.LEFT, padx=(0, 8))
+        
+        self.status_label = tk.Label(self.status_frame,
+                                    text="Ready",
+                                    font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                                    bg=self.colors['white'])
+        self.status_label.pack(side=tk.LEFT)
+    
+    def create_column1_panel(self, parent):
+        """Create column 1 with device configuration, file upload, and Tailscale configuration"""
+        column1_panel = tk.Frame(parent, bg=self.colors['background'])
+        column1_panel.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 7))
+        column1_panel.columnconfigure(0, weight=1)
+        column1_panel.rowconfigure(0, weight=1)
+        
+        # Device Configuration Section
+        self.create_device_config_section(column1_panel)
+        
+        # File Upload Section
+        self.create_file_upload_section(column1_panel)
+        
+        # Tailscale Configuration Section
+        self.create_tailscale_section(column1_panel)
+        
+        return column1_panel
+    
+    def create_column2_panel(self, parent):
+        """Create column 2 with control buttons and function selection"""
+        column2_panel = tk.Frame(parent, bg=self.colors['background'])
+        column2_panel.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 7))
+        column2_panel.columnconfigure(0, weight=1)
+        column2_panel.rowconfigure(0, weight=1)  # Control buttons
+        column2_panel.rowconfigure(1, weight=4)  # Function selection (more space)
+        
+        # Control Buttons Section
+        self.create_control_buttons_section(column2_panel)
+        
+        # Function Selection Section
+        self.create_function_selection_section(column2_panel)
+        
+        return column2_panel
+    
+    def create_column3_panel(self, parent):
+        """Create column 3 with log output only"""
+        column3_panel = tk.Frame(parent, bg=self.colors['background'])
+        column3_panel.grid(row=1, column=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        column3_panel.columnconfigure(0, weight=1)
+        column3_panel.rowconfigure(0, weight=1)  # Log output fills entire column
+        
+        # Log Output Section
+        self.create_log_section(column3_panel)
+        
+        return column3_panel
+    
+    def create_footer(self, parent):
+        """Create footer with statistics"""
+        footer_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        footer_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(20, 0))
+        footer_frame.columnconfigure(0, weight=1)
+        
+        # Statistics
+        stats_frame = tk.Frame(footer_frame, bg=self.colors['white'])
+        stats_frame.grid(row=0, column=0, padx=30, pady=15, sticky=tk.W)
+        
+        self.scans_label = tk.Label(stats_frame,
+                                   text="Scans: 0",
+                                   font=("SF Pro Text", 10),
+                                   fg=self.colors['text_secondary'],
+                                   bg=self.colors['white'])
+        self.scans_label.pack(side=tk.LEFT, padx=(0, 20))
+        
+        self.configs_label = tk.Label(stats_frame,
+                                     text="Configurations: 0",
+                                     font=("SF Pro Text", 10),
+                                     fg=self.colors['text_secondary'],
+                                     bg=self.colors['white'])
+        self.configs_label.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # Timestamp
+        self.timestamp_label = tk.Label(stats_frame,
+                                       text=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                       font=("SF Pro Text", 10),
+                                       fg=self.colors['text_secondary'],
+                                       bg=self.colors['white'])
+        self.timestamp_label.pack(side=tk.RIGHT)
+    
+    def create_device_config_section(self, parent):
+        """Create device configuration section with modern styling"""
+        # Section container
+        config_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        config_frame.pack(fill=tk.X, pady=(0, 15))
+        config_frame.columnconfigure(0, weight=1)
+        
+        # Section header
+        header_frame = tk.Frame(config_frame, bg=self.colors['primary'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        header_label = tk.Label(header_frame,
+                               text="⚙️ Device Configuration",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['primary'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Content frame
+        content_frame = tk.Frame(config_frame, bg=self.colors['white'])
+        content_frame.pack(fill=tk.X, padx=20, pady=20)
+        content_frame.columnconfigure(1, weight=1)
+        
+        # Target IP
+        tk.Label(content_frame, text="Target LAN IP:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.target_ip_var = tk.StringVar(value="192.168.1.1")
-        self.target_ip_entry = ttk.Entry(ip_frame, textvariable=self.target_ip_var, width=15)
-        self.target_ip_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
+        self.target_ip_entry = tk.Entry(content_frame, 
+                                       textvariable=self.target_ip_var,
+                                       font=("SF Pro Text", 10),
+                                       relief=tk.SUNKEN,
+                                       bd=2,
+                                       bg="white",
+                                       fg="black")
+        self.target_ip_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: 192.168.1.1)", 
-                 font=("Arial", 8), foreground="gray").grid(row=0, column=2, sticky=tk.W)
+        tk.Label(content_frame, text="(Default: 192.168.1.1)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=0, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Username configuration
-        ttk.Label(ip_frame, text="Username:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Username
+        tk.Label(content_frame, text="Username:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=1, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.username_var = tk.StringVar(value="admin")
-        self.username_entry = ttk.Entry(ip_frame, textvariable=self.username_var, width=15)
-        self.username_entry.grid(row=1, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.username_entry = tk.Entry(content_frame, 
+                                      textvariable=self.username_var,
+                                      font=("SF Pro Text", 10),
+                                      relief=tk.SUNKEN,
+                                      bd=2,
+                                      bg="white",
+                                      fg="black")
+        self.username_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: admin)", 
-                 font=("Arial", 8), foreground="gray").grid(row=1, column=2, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(Default: admin)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=1, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Password configuration
-        ttk.Label(ip_frame, text="Password:").grid(row=2, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Password
+        tk.Label(content_frame, text="Password:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=2, column=0, sticky=tk.W, pady=(0, 8))
+        
+        password_frame = tk.Frame(content_frame, bg=self.colors['white'])
+        password_frame.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
+        password_frame.columnconfigure(0, weight=1)
+        
         self.password_var = tk.StringVar(value="admin")
-        self.password_entry = ttk.Entry(ip_frame, textvariable=self.password_var, width=15, show="*")
-        self.password_entry.grid(row=2, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.password_entry = tk.Entry(password_frame, 
+                                      textvariable=self.password_var,
+                                      font=("SF Pro Text", 10),
+                                      relief=tk.SUNKEN,
+                                      bd=2,
+                                      bg="white",
+                                            fg="black",
+                                      show="*")
+        self.password_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
-        # Show/Hide password button
         self.show_password_var = tk.BooleanVar()
-        self.show_password_check = ttk.Checkbutton(ip_frame, text="Show", variable=self.show_password_var, 
-                                                 command=self.toggle_password_visibility)
-        self.show_password_check.grid(row=2, column=2, sticky=tk.W, padx=(5, 0), pady=(5, 0))
+        self.show_password_check = tk.Checkbutton(password_frame,
+                                                 text="Show",
+                                                 variable=self.show_password_var,
+                                                 command=self.toggle_password_visibility,
+                                                 font=("SF Pro Text", 10),
+                                                 fg=self.colors['text_secondary'],
+                                                 bg=self.colors['white'],
+                                                 selectcolor=self.colors['light'],
+                                                 activebackground=self.colors['white'])
+        self.show_password_check.grid(row=0, column=1, padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: admin)", 
-                 font=("Arial", 8), foreground="gray").grid(row=2, column=3, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(Default: admin)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=2, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Scan interval configuration
-        ttk.Label(ip_frame, text="Scan Interval (seconds):").grid(row=3, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Scan Interval
+        tk.Label(content_frame, text="Scan Interval:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=3, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.scan_interval_var = tk.StringVar(value="10")
-        self.scan_interval_entry = ttk.Entry(ip_frame, textvariable=self.scan_interval_var, width=10)
-        self.scan_interval_entry.grid(row=3, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.scan_interval_entry = tk.Entry(content_frame, 
+                                           textvariable=self.scan_interval_var,
+                                           font=("SF Pro Text", 10),
+                                           relief=tk.FLAT,
+                                           bd=1,
+                                           bg="white",
+                                           fg="black",
+                                           width=10)
+        self.scan_interval_entry.grid(row=3, column=1, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: 10 seconds)", 
-                 font=("Arial", 8), foreground="gray").grid(row=3, column=2, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="seconds (Default: 10)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=3, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Final LAN IP configuration (for REVERSE step)
-        ttk.Label(ip_frame, text="Final LAN IP (Step 10):").grid(row=4, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Final LAN IP
+        tk.Label(content_frame, text="Final LAN IP:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=4, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.final_ip_var = tk.StringVar(value="192.168.1.1")
-        self.final_ip_entry = ttk.Entry(ip_frame, textvariable=self.final_ip_var, width=15)
-        self.final_ip_entry.grid(row=4, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.final_ip_entry = tk.Entry(content_frame, 
+                                      textvariable=self.final_ip_var,
+                                      font=("SF Pro Text", 10),
+                                      relief=tk.SUNKEN,
+                                      bd=2,
+                                      bg="white",
+                                      fg="black")
+        self.final_ip_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: 192.168.1.1)", 
-                 font=("Arial", 8), foreground="gray").grid(row=4, column=2, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(Step 10 - Default: 192.168.1.1)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=4, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Final password configuration (for set-password step)
-        ttk.Label(ip_frame, text="Final Password (Step 11):").grid(row=5, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Final Password
+        tk.Label(content_frame, text="Final Password:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=5, column=0, sticky=tk.W, pady=(0, 8))
+        
+        final_password_frame = tk.Frame(content_frame, bg=self.colors['white'])
+        final_password_frame.grid(row=5, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
+        final_password_frame.columnconfigure(0, weight=1)
+        
         self.final_password_var = tk.StringVar(value="admin")
-        self.final_password_entry = ttk.Entry(ip_frame, textvariable=self.final_password_var, width=15, show="*")
-        self.final_password_entry.grid(row=5, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        self.final_password_entry = tk.Entry(final_password_frame, 
+                                            textvariable=self.final_password_var,
+                                            font=("SF Pro Text", 10),
+                                            relief=tk.FLAT,
+                                            bd=1,
+                                            bg="white",
+                                            fg="black",
+                                            show="*")
+        self.final_password_entry.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
-        # Show/Hide final password button
         self.show_final_password_var = tk.BooleanVar()
-        self.show_final_password_check = ttk.Checkbutton(ip_frame, text="Show", variable=self.show_final_password_var, 
-                                                       command=self.toggle_final_password_visibility)
-        self.show_final_password_check.grid(row=5, column=2, sticky=tk.W, padx=(5, 0), pady=(5, 0))
+        self.show_final_password_check = tk.Checkbutton(final_password_frame,
+                                                       text="Show",
+                                                       variable=self.show_final_password_var,
+                                                       command=self.toggle_final_password_visibility,
+                                                       font=("SF Pro Text", 10),
+                                                       fg=self.colors['text_secondary'],
+                                                       bg=self.colors['white'],
+                                                       selectcolor=self.colors['light'],
+                                                       activebackground=self.colors['white'])
+        self.show_final_password_check.grid(row=0, column=1, padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(Default: admin)", 
-                 font=("Arial", 8), foreground="gray").grid(row=5, column=3, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(Step 11 - Default: admin)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=5, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Node-RED Flows Configuration
-        ttk.Label(ip_frame, text="Flows Source:").grid(row=6, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Flows Source
+        tk.Label(content_frame, text="Flows Source:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=6, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.flows_source_var = tk.StringVar(value="github")
-        flows_source_combo = ttk.Combobox(ip_frame, textvariable=self.flows_source_var, width=15, state="readonly")
-        flows_source_combo['values'] = ("auto", "local", "github", "uploaded")
-        flows_source_combo.grid(row=6, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        flows_source_combo = ttk.Combobox(content_frame, 
+                                         textvariable=self.flows_source_var,
+                                         values=("auto", "local", "github", "uploaded"),
+                                         state="readonly",
+                                         font=("SF Pro Text", 10))
+        flows_source_combo.grid(row=6, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(auto=detect, local=./nodered_flows_backup, github=download, uploaded=use uploaded files)", 
-                 font=("Arial", 8), foreground="gray").grid(row=6, column=2, columnspan=2, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(auto=detect, local=./nodered_flows_backup, github=download, uploaded=use uploaded files)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=6, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        # Package.json Source Configuration
-        ttk.Label(ip_frame, text="Package Source:").grid(row=7, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Package Source
+        tk.Label(content_frame, text="Package Source:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=7, column=0, sticky=tk.W, pady=(0, 8))
+        
         self.package_source_var = tk.StringVar(value="github")
-        package_source_combo = ttk.Combobox(ip_frame, textvariable=self.package_source_var, width=15, state="readonly")
-        package_source_combo['values'] = ("auto", "local", "github", "uploaded")
-        package_source_combo.grid(row=7, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        package_source_combo = ttk.Combobox(content_frame, 
+                                           textvariable=self.package_source_var,
+                                           values=("auto", "local", "github", "uploaded"),
+                                           state="readonly",
+                                           font=("SF Pro Text", 10))
+        package_source_combo.grid(row=7, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
         
-        ttk.Label(ip_frame, text="(auto=detect, local=./nodered_flows_backup, github=download, uploaded=use uploaded files)", 
-                 font=("Arial", 8), foreground="gray").grid(row=7, column=2, columnspan=2, sticky=tk.W, pady=(5, 0))
+        tk.Label(content_frame, text="(auto=detect, local=./nodered_flows_backup, github=download, uploaded=use uploaded files)", 
+                font=("SF Pro Text", 10),
+                fg=self.colors['text_secondary'],
+                bg=self.colors['white']).grid(row=7, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
+    
+    def create_file_upload_section(self, parent):
+        """Create file upload section with modern styling"""
+        # Section container
+        upload_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        upload_frame.pack(fill=tk.X, pady=(0, 15))
+        upload_frame.columnconfigure(0, weight=1)
         
+        # Section header
+        header_frame = tk.Frame(upload_frame, bg=self.colors['secondary'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
         
-        # File Upload Configuration
-        upload_frame = ttk.LabelFrame(left_frame, text="File Upload", padding="5")
-        upload_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 10))
+        header_label = tk.Label(header_frame,
+                               text="📁 File Upload",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['secondary'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
         
-        # Upload flows.json button
-        ttk.Label(upload_frame, text="Upload flows.json:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.upload_flows_button = ttk.Button(upload_frame, text="Choose File", command=self.upload_flows_file)
-        self.upload_flows_button.grid(row=0, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Content frame
+        content_frame = tk.Frame(upload_frame, bg=self.colors['white'])
+        content_frame.pack(fill=tk.X, padx=20, pady=20)
+        content_frame.columnconfigure(1, weight=1)
         
-        # Upload package.json button
-        ttk.Label(upload_frame, text="Upload package.json:").grid(row=1, column=0, sticky=tk.W, padx=(0, 10), pady=(5, 0))
-        self.upload_package_button = ttk.Button(upload_frame, text="Choose File", command=self.upload_package_file)
-        self.upload_package_button.grid(row=1, column=1, sticky=tk.W, padx=(0, 10), pady=(5, 0))
+        # Upload flows.json
+        tk.Label(content_frame, text="Upload flows.json:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
         
-        # File status labels
-        self.flows_status_label = ttk.Label(upload_frame, text="No file selected", font=("Arial", 8), foreground="gray")
-        self.flows_status_label.grid(row=0, column=2, sticky=tk.W, padx=(10, 0), pady=(5, 0))
+        self.upload_flows_button = tk.Button(content_frame,
+                                           text="Choose File",
+                                           command=self.upload_flows_file,
+                                           font=("SF Pro Text", 10, "bold"),
+                                           bg=self.colors['info'],
+                                           fg="black",
+                                           relief=tk.FLAT,
+                                           bd=0,
+                                           padx=20,
+                                           pady=8,
+                                           cursor="hand2")
+        self.upload_flows_button.grid(row=0, column=1, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
-        self.package_status_label = ttk.Label(upload_frame, text="No file selected", font=("Arial", 8), foreground="gray")
-        self.package_status_label.grid(row=1, column=2, sticky=tk.W, padx=(10, 0), pady=(5, 0))
+        self.flows_status_label = tk.Label(content_frame,
+                                          text="No file selected",
+                                          font=("SF Pro Text", 10),
+                                          fg=self.colors['text_secondary'],
+                                          bg=self.colors['white'])
+        self.flows_status_label.grid(row=0, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
+        
+        # Upload package.json
+        tk.Label(content_frame, text="Upload package.json:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=1, column=0, sticky=tk.W, pady=(0, 8))
+        
+        self.upload_package_button = tk.Button(content_frame,
+                                             text="Choose File",
+                                             command=self.upload_package_file,
+                                             font=("SF Pro Text", 10, "bold"),
+                                             bg=self.colors['info'],
+                                             fg="black",
+                                             relief=tk.FLAT,
+                                             bd=0,
+                                             padx=20,
+                                             pady=8,
+                                             cursor="hand2")
+        self.upload_package_button.grid(row=1, column=1, sticky=tk.W, pady=(0, 8), padx=(10, 0))
+        
+        self.package_status_label = tk.Label(content_frame,
+                                            text="No file selected",
+                                            font=("SF Pro Text", 10),
+                                            fg=self.colors['text_secondary'],
+                                            bg=self.colors['white'])
+        self.package_status_label.grid(row=1, column=2, sticky=tk.W, pady=(0, 8), padx=(10, 0))
         
         # Clear uploaded files button
-        self.clear_files_button = ttk.Button(upload_frame, text="Clear Uploaded Files", command=self.clear_uploaded_files)
-        self.clear_files_button.grid(row=2, column=0, columnspan=3, pady=(10, 0))
+        self.clear_files_button = tk.Button(content_frame,
+                                           text="🗑️ Clear Uploaded Files",
+                                           command=self.clear_uploaded_files,
+                                           font=("SF Pro Text", 10, "bold"),
+                                           bg=self.colors['warning'],
+                                           fg="black",
+                                           relief=tk.FLAT,
+                                           bd=0,
+                                           padx=20,
+                                           pady=8,
+                                           cursor="hand2")
+        self.clear_files_button.grid(row=2, column=0, columnspan=3, pady=(15, 0))
         
         # Initialize uploaded files tracking
         self.uploaded_flows_file = None
@@ -575,17 +941,312 @@ class NetworkBotGUI:
         if not os.path.exists(self.upload_dir):
             os.makedirs(self.upload_dir)
         
-        # Function selection frame (moved to right panel under log output)
-        selection_frame = ttk.LabelFrame(right_frame, text="Function Selection", padding="5")
-        selection_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 0))
+    def create_tailscale_section(self, parent):
+        """Create Tailscale configuration section with modern styling"""
+        # Section container
+        tailscale_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        tailscale_frame.pack(fill=tk.X, pady=(0, 15))
+        tailscale_frame.columnconfigure(0, weight=1)
         
-        # Select All/None buttons
-        button_frame = ttk.Frame(selection_frame)
-        button_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        # Section header
+        header_frame = tk.Frame(tailscale_frame, bg=self.colors['info'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
         
-        ttk.Button(button_frame, text="Select All", command=self.select_all_functions).grid(row=0, column=0, padx=(0, 10))
-        ttk.Button(button_frame, text="Select None", command=self.select_none_functions).grid(row=0, column=1, padx=(0, 10))
-        ttk.Button(button_frame, text="Quick Setup", command=self.select_quick_setup).grid(row=0, column=2, padx=(0, 10))
+        header_label = tk.Label(header_frame,
+                               text="🔗 Tailscale Configuration",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['info'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Content frame
+        content_frame = tk.Frame(tailscale_frame, bg=self.colors['white'])
+        content_frame.pack(fill=tk.X, padx=20, pady=20)
+        content_frame.columnconfigure(1, weight=1)
+        
+        # Auth Key
+        tk.Label(content_frame, text="Auth Key:", 
+                font=("SF Pro Text", 10, "bold"),
+                                            fg="black",
+                bg=self.colors['white']).grid(row=0, column=0, sticky=tk.W, pady=(0, 8))
+        
+        self.tailscale_auth_key_var = tk.StringVar()
+        # Set default auth key
+        self.tailscale_auth_key_var.set("tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC")
+        
+        self.tailscale_auth_key_entry = tk.Entry(content_frame, 
+                                                textvariable=self.tailscale_auth_key_var,
+                                                font=("SF Pro Text", 10),
+                                                relief=tk.FLAT,
+                                                bd=1,
+                                                bg="white",
+                                                fg="black",
+                                                show="*")
+        self.tailscale_auth_key_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=(0, 8), padx=(10, 0))
+        
+        # Add validation for auth key format
+        self.tailscale_auth_key_var.trace('w', self.validate_tailscale_auth_key)
+        
+        # Validation status label
+        self.tailscale_validation_label = tk.Label(content_frame, 
+                                                  text="",
+                                                  font=("SF Pro Text", 9),
+                                                  fg=self.colors['success'],
+                                                  bg=self.colors['white'])
+        self.tailscale_validation_label.grid(row=1, column=1, sticky=tk.W, pady=(0, 8), padx=(10, 0))
+        
+        # Button frame for Tailscale controls
+        button_frame = tk.Frame(content_frame, bg=self.colors['white'])
+        button_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        button_frame.columnconfigure(0, weight=1)
+        button_frame.columnconfigure(1, weight=1)
+        button_frame.columnconfigure(2, weight=1)
+        button_frame.columnconfigure(3, weight=1)
+        
+        # Submit Auth Key button
+        self.tailscale_submit_button = tk.Button(button_frame,
+                                                text="🔑 Submit Auth Key",
+                                                font=("SF Pro Text", 10, "bold"),
+                                                bg=self.colors['primary'],
+                                                fg=self.colors['white'],
+                                                relief=tk.FLAT,
+                                                bd=0,
+                                                padx=20,
+                                                pady=8,
+                                                cursor="hand2",
+                                                command=self.tailscale_submit_auth_key)
+        self.tailscale_submit_button.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 5))
+        
+        # Tailscale Down button
+        self.tailscale_down_button = tk.Button(button_frame,
+                                              text="🔴 Tailscale Down",
+                                              font=("SF Pro Text", 10, "bold"),
+                                              bg=self.colors['danger'],
+                                              fg=self.colors['white'],
+                                              relief=tk.FLAT,
+                                              bd=0,
+                                              padx=20,
+                                              pady=8,
+                                              cursor="hand2",
+                                              command=self.tailscale_down)
+        self.tailscale_down_button.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5)
+        
+        # Tailscale Up button
+        self.tailscale_up_button = tk.Button(button_frame,
+                                            text="🟢 Tailscale Up",
+                                            font=("SF Pro Text", 10, "bold"),
+                                            bg=self.colors['success'],
+                                            fg=self.colors['white'],
+                                            relief=tk.FLAT,
+                                            bd=0,
+                                            padx=20,
+                                            pady=8,
+                                            cursor="hand2",
+                                            command=self.tailscale_up)
+        self.tailscale_up_button.grid(row=0, column=2, sticky=(tk.W, tk.E), padx=5)
+        
+        # Restart Tailscale button (Down + Up)
+        self.tailscale_restart_button = tk.Button(button_frame,
+                                                 text="🔄 Restart Tailscale",
+                                                 font=("SF Pro Text", 10, "bold"),
+                                                 bg=self.colors['warning'],
+                                                 fg=self.colors['white'],
+                                                 relief=tk.FLAT,
+                                                 bd=0,
+                                                 padx=20,
+                                                 pady=8,
+                                                 cursor="hand2",
+                                                 command=self.tailscale_restart)
+        self.tailscale_restart_button.grid(row=0, column=3, sticky=(tk.W, tk.E), padx=(5, 0))
+        
+        # Add tooltips to clarify these work on remote devices
+        self.create_tooltip(self.tailscale_submit_button, "Update Tailscale auth key on remote device and restart container")
+        self.create_tooltip(self.tailscale_down_button, "Stop Tailscale container on remote device")
+        self.create_tooltip(self.tailscale_up_button, "Start Tailscale container on remote device with current auth key")
+        self.create_tooltip(self.tailscale_restart_button, "Restart Tailscale container on remote device (stop then start)")
+        
+    
+    def create_control_buttons_section(self, parent):
+        """Create control buttons section with modern styling"""
+        # Section container
+        control_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        control_frame.pack(fill=tk.X, pady=(0, 15))
+        control_frame.columnconfigure(0, weight=1)
+        
+        # Section header
+        header_frame = tk.Frame(control_frame, bg=self.colors['success'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        header_label = tk.Label(header_frame,
+                               text="🎮 Control Panel",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['success'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Content frame
+        content_frame = tk.Frame(control_frame, bg=self.colors['white'])
+        content_frame.pack(fill=tk.X, padx=20, pady=20)
+        content_frame.columnconfigure(0, weight=1)
+        content_frame.columnconfigure(1, weight=1)
+        
+        # Start Bot button
+        self.start_bot_button = tk.Button(content_frame,
+                                         text="🚀 Start Bot",
+                                         command=self.start_bot,
+                                         font=("SF Pro Text", 10, "bold"),
+                                         bg=self.colors['success'],
+                                         fg="black",
+                                         relief=tk.FLAT,
+                                         bd=0,
+                                         padx=30,
+                                         pady=12,
+                                         cursor="hand2")
+        self.start_bot_button.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=(0, 10))
+        
+        # Reset Device button
+        self.reset_device_button = tk.Button(content_frame,
+                                            text="🔄 Reset Device",
+                                            command=self.reset_device,
+                                            font=("SF Pro Text", 10, "bold"),
+                                            bg=self.colors['danger'],
+                                            fg="black",
+                                            relief=tk.FLAT,
+                                            bd=0,
+                                            padx=30,
+                                            pady=12,
+                                            cursor="hand2")
+        self.reset_device_button.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 0))
+    
+    def create_log_section(self, parent):
+        """Create log output section with modern styling"""
+        # Section container
+        log_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        log_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        log_frame.columnconfigure(0, weight=1)
+        log_frame.rowconfigure(1, weight=1)
+        
+        # Section header
+        header_frame = tk.Frame(log_frame, bg=self.colors['dark'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        header_label = tk.Label(header_frame,
+                               text="📋 Log Output",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['dark'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Log text area
+        self.log_text = scrolledtext.ScrolledText(log_frame,
+                                                 font=("SF Mono", 10),
+                                                 bg=self.colors['dark'],
+                                                 fg="black",
+                                                 relief=tk.FLAT,
+                                                 bd=0,
+                                                 wrap=tk.WORD,
+                                                 state=tk.DISABLED)
+        self.log_text.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        
+        # Configure text tags for colored output
+        self.log_text.tag_configure("SUCCESS", foreground=self.colors['success'])
+        self.log_text.tag_configure("ERROR", foreground=self.colors['danger'])
+        self.log_text.tag_configure("WARNING", foreground=self.colors['warning'])
+        self.log_text.tag_configure("INFO", foreground=self.colors['info'])
+        self.log_text.tag_configure("DEBUG", foreground=self.colors['text_secondary'])
+    
+    def create_function_selection_section(self, parent):
+        """Create function selection section with modern styling"""
+        # Section container
+        selection_frame = tk.Frame(parent, bg=self.colors['white'], relief=tk.FLAT, bd=0)
+        selection_frame.pack(fill=tk.BOTH, expand=True)
+        selection_frame.columnconfigure(0, weight=1)
+        selection_frame.rowconfigure(1, weight=1)
+        
+        # Section header
+        header_frame = tk.Frame(selection_frame, bg=self.colors['primary'], height=40)
+        header_frame.pack(fill=tk.X)
+        header_frame.pack_propagate(False)
+        
+        header_label = tk.Label(header_frame,
+                               text="⚡ Function Selection",
+                               font=("SF Pro Text", 10, "bold"),
+                               fg=self.colors['white'],
+                               bg=self.colors['primary'])
+        header_label.pack(side=tk.LEFT, padx=20, pady=10)
+        
+        # Control buttons
+        button_frame = tk.Frame(selection_frame, bg=self.colors['white'])
+        button_frame.pack(fill=tk.X, padx=20, pady=(15, 10))
+        
+        self.select_all_button = tk.Button(button_frame,
+                                          text="✅ Select All",
+                                          command=self.select_all_functions,
+                                          font=("SF Pro Text", 10, "bold"),
+                                          bg=self.colors['success'],
+                                          fg="black",
+                                          relief=tk.FLAT,
+                                          bd=0,
+                                          padx=15,
+                                          pady=8,
+                                          cursor="hand2")
+        self.select_all_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.select_none_button = tk.Button(button_frame,
+                                           text="❌ Select None",
+                                           command=self.select_none_functions,
+                                           font=("SF Pro Text", 10, "bold"),
+                                           bg=self.colors['danger'],
+                                           fg="black",
+                                           relief=tk.FLAT,
+                                           bd=0,
+                                           padx=15,
+                                           pady=8,
+                                           cursor="hand2")
+        self.select_none_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        self.quick_setup_button = tk.Button(button_frame,
+                                           text="⚡ Quick Setup",
+                                           command=self.select_quick_setup,
+                                           font=("SF Pro Text", 10, "bold"),
+                                           bg=self.colors['warning'],
+                                           fg="black",
+                                           relief=tk.FLAT,
+                                           bd=0,
+                                           padx=15,
+                                           pady=8,
+                                           cursor="hand2")
+        self.quick_setup_button.pack(side=tk.LEFT)
+        
+        # Function list frame
+        list_frame = tk.Frame(selection_frame, bg=self.colors['white'])
+        list_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
+        list_frame.columnconfigure(0, weight=1)
+        
+        # Create scrollable function list
+        self.create_function_list(list_frame)
+    
+    def create_function_list(self, parent):
+        """Create scrollable function list with modern styling"""
+        # Create canvas and scrollbar for scrollable list
+        canvas = tk.Canvas(parent, bg=self.colors['light'], highlightthickness=0)
+        scrollbar = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg=self.colors['light'])
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
         
         # Create function selection checkboxes with dependencies
         self.function_vars = []
@@ -599,189 +1260,62 @@ class NetworkBotGUI:
             ("install-services", "Install All Docker Services (Node-RED, Portainer, Restreamer)", ["install-docker"]),
             ("install-nodered-nodes", "Install Node-RED Nodes (ffmpeg, queue-gate, sqlite, serialport)", ["install-services"]),
             ("import-nodered-flows", "Import Node-RED Flows", ["install-services"]),
-            ("update-nodered-auth", "Update Node-RED Authentication (uses GUI password)", ["install-services"]),
-            ("install-tailscale", "Install Tailscale VPN Router", ["install-docker"]),
+            ("update-nodered-auth", "Update Node-RED Authentication (uses GUI password)", ["import-nodered-flows"]),
+            ("install-tailscale", "Install Tailscale VPN Router", ["install-services"]),
             ("reverse", "Configure Network REVERSE (uses Final LAN IP)", []),
             ("set-password", "Change Device Password (uses Final Password)", [])
         ]
         
-        for i, (command, description, dependencies) in enumerate(self.function_descriptions):
-            # Create checkbox variable
+        for i, (func_id, description, dependencies) in enumerate(self.function_descriptions):
+            # Create function item frame
+            item_frame = tk.Frame(scrollable_frame, bg=self.colors['white'], relief=tk.FLAT, bd=1)
+            item_frame.pack(fill=tk.X, padx=5, pady=1)
+            item_frame.columnconfigure(1, weight=1)
+            
+            # Checkbox
             var = tk.BooleanVar()
-            self.function_vars.append((var, command, dependencies))
+            self.function_vars.append(var)
             
-            # Create checkbox
-            checkbox = ttk.Checkbutton(selection_frame, variable=var, 
-                                     command=self.update_selected_functions)
-            checkbox.grid(row=i+1, column=0, sticky=tk.W, padx=(0, 10), pady=2)
+            checkbox = tk.Checkbutton(item_frame,
+                                    variable=var,
+                                    bg=self.colors['white'],
+                                    activebackground=self.colors['white'],
+                                    selectcolor=self.colors['light'],
+                                    relief=tk.FLAT,
+                                    bd=0)
+            checkbox.grid(row=0, column=0, padx=10, pady=4, sticky=tk.N)
             
-            # Create label
-            label = ttk.Label(selection_frame, text=f"{i+1}. {description}", 
-                             font=("Arial", 9))
-            label.grid(row=i+1, column=1, sticky=tk.W, pady=2)
+            # Description label
+            label = tk.Label(item_frame,
+                           text=f"{i+1}. {description}",
+                           font=("SF Pro Text", 10),
+                                            fg="black",
+                           bg=self.colors['white'],
+                           wraplength=400,
+                           justify=tk.LEFT)
+            label.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10), pady=4)
             self.function_labels.append(label)
-        
-        # Selected functions summary
-        self.selected_summary = ttk.Label(selection_frame, text="Selected: 0 functions", 
-                                         font=("Arial", 10, "bold"), foreground="blue")
-        self.selected_summary.grid(row=12, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
-        
-        # Configuration sequence progress frame (moved to end of function selection)
-        sequence_frame = ttk.LabelFrame(selection_frame, text="Execution Progress", padding="3")
-        sequence_frame.grid(row=13, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
-        
-        # Add toggle button for execution progress
-        self.show_progress_var = tk.BooleanVar(value=False)  # Hidden by default
-        self.show_progress_check = ttk.Checkbutton(sequence_frame, text="Show Progress Details", 
-                                                 variable=self.show_progress_var, 
-                                                 command=self.toggle_progress_display)
-        self.show_progress_check.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 2))
-        
-        # Progress summary
-        self.progress_summary = ttk.Label(sequence_frame, text="Ready to execute selected functions", 
-                                         font=("Arial", 8, "bold"), foreground="blue")
-        self.progress_summary.grid(row=1, column=0, sticky=tk.W, pady=(0, 2))
-        
-        # Step progress indicators
-        self.step_indicators = []
-        self.step_labels = []
-        
-        # Create step indicators for each possible function
-        step_descriptions = [
-            "Configure Network FORWARD",
-            "Check DNS Connectivity", 
-            "Fix DNS Configuration",
-            "Install curl",
-            "Install Docker",
-            "Install All Docker Services",
-            "Install Node-RED Nodes",
-            "Import Node-RED Flows",
-            "Update Node-RED Authentication",
-            "Install Tailscale VPN Router",
-            "Configure Network REVERSE",
-            "Change Device Password"
-        ]
-        
-        # Create a scrollable frame for step indicators
-        canvas = tk.Canvas(sequence_frame, height=40, bg="white")
-        scrollbar = ttk.Scrollbar(sequence_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Create step indicators
-        for i, description in enumerate(step_descriptions):
-            # Create frame for each step
-            step_frame = ttk.Frame(scrollable_frame)
-            step_frame.grid(row=i, column=0, sticky=(tk.W, tk.E), pady=1)
             
-            # Status indicator (circle/checkmark) - smaller
-            status_label = ttk.Label(step_frame, text="○", font=("Arial", 10), foreground="gray")
-            status_label.grid(row=0, column=0, padx=(0, 5))
-            self.step_indicators.append(status_label)
-            
-            # Step description - smaller font
-            step_label = ttk.Label(step_frame, text=f"{i+1}. {description}", 
-                                 font=("Arial", 8), foreground="gray")
-            step_label.grid(row=0, column=1, sticky=tk.W)
-            self.step_labels.append(step_label)
+            # Store dependencies
+            checkbox.dependencies = dependencies
+            checkbox.func_id = func_id
         
-        # Place canvas and scrollbar
-        canvas.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 1))
-        scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S), pady=(0, 1))
+        # Selection counter
+        self.selection_counter = tk.Label(parent,
+                                        text="Selected: 0 functions",
+                                        font=("SF Pro Text", 10, "bold"),
+                                        fg=self.colors['text_secondary'],
+                                        bg=self.colors['light'])
+        self.selection_counter.pack(pady=(10, 0))
         
-        # Configure grid weights for scrolling
-        sequence_frame.rowconfigure(2, weight=1)
-        sequence_frame.columnconfigure(0, weight=1)
-        
-        # Store references for toggle functionality
-        self.progress_canvas = canvas
-        self.progress_scrollbar = scrollbar
-        
-        # Tailscale Auth Key configuration frame
-        tailscale_frame = ttk.LabelFrame(left_frame, text="Tailscale Configuration", padding="5")
-        tailscale_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        ttk.Label(tailscale_frame, text="Auth Key:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
-        self.tailscale_auth_var = tk.StringVar(value="tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC")
-        self.tailscale_auth_entry = ttk.Entry(tailscale_frame, textvariable=self.tailscale_auth_var, width=50, show="*")
-        self.tailscale_auth_entry.grid(row=0, column=1, sticky=tk.W, padx=(0, 10))
-        
-        ttk.Label(tailscale_frame, text="(Valid for 90 days)", 
-                 font=("Arial", 8), foreground="gray").grid(row=0, column=2, sticky=tk.W)
-        
-        # Route advertising info
-        ttk.Label(tailscale_frame, text="Route Advertising:", 
-                 font=("Arial", 9, "bold")).grid(row=1, column=0, sticky=tk.W, pady=(5, 0))
-        ttk.Label(tailscale_frame, text="Will advertise 192.168.1.0/24 and 192.168.14.0/24", 
-                 font=("Arial", 8), foreground="blue").grid(row=1, column=1, columnspan=2, sticky=tk.W, pady=(5, 0))
-        
-        # Control buttons frame
-        control_frame = ttk.Frame(left_frame)
-        control_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        # Start/Stop button
-        self.start_button = ttk.Button(control_frame, text="Start Bot", 
-                                      command=self.toggle_bot, style="Accent.TButton")
-        self.start_button.grid(row=0, column=0, padx=(0, 10))
-        
-        # Reset Device button
-        self.reset_button = ttk.Button(control_frame, text="Reset Device", 
-                                      command=self.reset_device, style="")
-        self.reset_button.grid(row=0, column=1, padx=(0, 10))
-        
-        # Status label
-        self.status_label = ttk.Label(control_frame, text="Status: Ready", 
-                                     font=("Arial", 10, "bold"))
-        self.status_label.grid(row=0, column=2, padx=(10, 0))
-        
-        # Scan count label
-        self.scan_count_label = ttk.Label(control_frame, text="Scans: 0", 
-                                         font=("Arial", 9))
-        self.scan_count_label.grid(row=0, column=3, padx=(20, 0))
-        
-        # Log display (in right frame)
-        log_frame = ttk.LabelFrame(right_frame, text="Log Output", padding="5")
-        log_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        log_frame.columnconfigure(0, weight=1)
-        log_frame.rowconfigure(0, weight=1)
-        
-        # Create scrolled text widget with custom tags for colors
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=20, width=80,
-                                                 font=("Consolas", 9), wrap=tk.WORD)
-        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Configure text tags for colored output (more vibrant colors)
-        self.log_text.tag_configure("INFO", foreground="#2E7D32", font=("Consolas", 9))  # Dark green for info
-        self.log_text.tag_configure("SUCCESS", foreground="#00C853", font=("Consolas", 9, "bold"))  # Bright green for success
-        self.log_text.tag_configure("WARNING", foreground="#FF6F00", font=("Consolas", 9, "bold"))  # Orange for warnings
-        self.log_text.tag_configure("ERROR", foreground="#D32F2F", font=("Consolas", 9, "bold"))  # Red for errors
-        self.log_text.tag_configure("DEBUG", foreground="#616161", font=("Consolas", 8))  # Gray for debug
-        
-        # Progress bar (moved to left frame)
-        self.progress = ttk.Progressbar(left_frame, mode='indeterminate')
-        self.progress.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        # Bottom info frame (moved to left frame)
-        info_frame = ttk.Frame(left_frame)
-        info_frame.grid(row=6, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
-        
-        # Configuration count
-        self.config_count_label = ttk.Label(info_frame, text="Configurations: 0")
-        self.config_count_label.grid(row=0, column=0, sticky=tk.W)
-        
-        # Time label
-        self.time_label = ttk.Label(info_frame, text="")
-        self.time_label.grid(row=0, column=1, sticky=tk.E)
-        
-        # Update time display
-        self.update_time()
+        # Bind selection change events
+        for var in self.function_vars:
+            var.trace_add('write', lambda *args: self.update_selection_counter())
+    
+    def update_selection_counter(self, *args):
+        """Update the selection counter"""
+        selected_count = sum(1 for var in self.function_vars if var.get())
+        self.selection_counter.config(text=f"Selected: {selected_count} functions")
     
     def toggle_password_visibility(self):
         """Toggle password visibility"""
@@ -799,706 +1333,482 @@ class NetworkBotGUI:
     
     def upload_flows_file(self):
         """Upload flows.json file"""
-        try:
-            file_path = filedialog.askopenfilename(
-                title="Select flows.json file",
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-            )
-            
-            if file_path:
-                # Validate Node-RED flows.json structure
-                is_valid, message = self.validate_flows_json(file_path)
-                
-                if not is_valid:
-                    messagebox.showerror("Invalid flows.json", f"The selected file is not a valid Node-RED flows.json file.\n\nError: {message}")
-                    self.log_message(f"❌ Invalid flows.json structure: {message}", "ERROR")
-                    return
-                
-                try:
-                    # Copy file to upload directory
-                    dest_path = os.path.join(self.upload_dir, "flows.json")
-                    shutil.copy2(file_path, dest_path)
-                    
-                    self.uploaded_flows_file = dest_path
-                    filename = os.path.basename(file_path)
-                    self.flows_status_label.config(text=f"✓ {filename}", foreground="green")
-                    
-                    self.log_message(f"✅ Uploaded valid flows.json: {filename}", "SUCCESS")
-                    self.log_message(f"📋 Validation: {message}", "INFO")
-                    
-                    # Update flows source to use uploaded file
-                    self.flows_source_var.set("uploaded")
-                    
-                except Exception as e:
-                    messagebox.showerror("Upload Error", f"Failed to upload flows.json: {e}")
-                    self.log_message(f"❌ Failed to upload flows.json: {e}", "ERROR")
-                    
-        except Exception as e:
-            self.log_message(f"❌ Error selecting flows.json file: {e}", "ERROR")
+        file_path = filedialog.askopenfilename(
+            title="Select flows.json file",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                # Copy file to upload directory
+                filename = os.path.basename(file_path)
+                dest_path = os.path.join(self.upload_dir, filename)
+                shutil.copy2(file_path, dest_path)
+                self.uploaded_flows_file = dest_path
+                self.flows_status_label.config(text=f"✓ {filename}", fg=self.colors['success'])
+                self.log_message(f"📁 Uploaded flows file: {filename}", "SUCCESS")
+            except Exception as e:
+                self.log_message(f"❌ Error uploading flows file: {e}", "ERROR")
     
     def upload_package_file(self):
         """Upload package.json file"""
-        try:
-            file_path = filedialog.askopenfilename(
-                title="Select package.json file",
-                filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-            )
-            
-            if file_path:
-                # Validate Node-RED package.json structure
-                is_valid, message = self.validate_package_json(file_path)
-                
-                if not is_valid:
-                    messagebox.showerror("Invalid package.json", f"The selected file is not a valid Node-RED package.json file.\n\nError: {message}")
-                    self.log_message(f"❌ Invalid package.json structure: {message}", "ERROR")
-                    return
-                
-                try:
-                    # Copy file to upload directory
-                    dest_path = os.path.join(self.upload_dir, "package.json")
-                    shutil.copy2(file_path, dest_path)
-                    
-                    self.uploaded_package_file = dest_path
-                    filename = os.path.basename(file_path)
-                    self.package_status_label.config(text=f"✓ {filename}", foreground="green")
-                    
-                    self.log_message(f"✅ Uploaded valid package.json: {filename}", "SUCCESS")
-                    self.log_message(f"📋 Validation: {message}", "INFO")
-                    
-                    # Update package source to use uploaded file
-                    self.package_source_var.set("uploaded")
-                    
-                except Exception as e:
-                    messagebox.showerror("Upload Error", f"Failed to upload package.json: {e}")
-                    self.log_message(f"❌ Failed to upload package.json: {e}", "ERROR")
-                    
-        except Exception as e:
-            self.log_message(f"❌ Error selecting package.json file: {e}", "ERROR")
+        file_path = filedialog.askopenfilename(
+            title="Select package.json file",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+        if file_path:
+            try:
+                # Copy file to upload directory
+                filename = os.path.basename(file_path)
+                dest_path = os.path.join(self.upload_dir, filename)
+                shutil.copy2(file_path, dest_path)
+                self.uploaded_package_file = dest_path
+                self.package_status_label.config(text=f"✓ {filename}", fg=self.colors['success'])
+                self.log_message(f"📁 Uploaded package file: {filename}", "SUCCESS")
+            except Exception as e:
+                self.log_message(f"❌ Error uploading package file: {e}", "ERROR")
     
     def clear_uploaded_files(self):
-        """Clear all uploaded files"""
+        """Clear uploaded files"""
         try:
-            # Remove uploaded files
-            if self.uploaded_flows_file and os.path.exists(self.uploaded_flows_file):
-                os.remove(self.uploaded_flows_file)
+            if os.path.exists(self.upload_dir):
+                for file in os.listdir(self.upload_dir):
+                    os.remove(os.path.join(self.upload_dir, file))
                 self.uploaded_flows_file = None
-                self.flows_status_label.config(text="No file selected", foreground="gray")
-                
-            if self.uploaded_package_file and os.path.exists(self.uploaded_package_file):
-                os.remove(self.uploaded_package_file)
                 self.uploaded_package_file = None
-                self.package_status_label.config(text="No file selected", foreground="gray")
-            
-            # Reset flows source to github if it was set to uploaded
-            if self.flows_source_var.get() == "uploaded":
-                self.flows_source_var.set("github")
-            
-            # Reset package source to github if it was set to uploaded
-            if self.package_source_var.get() == "uploaded":
-                self.package_source_var.set("github")
-            
-            self.log_message("🗑️ Cleared all uploaded files", "INFO")
-            
+            self.flows_status_label.config(text="No file selected", fg=self.colors['text_secondary'])
+            self.package_status_label.config(text="No file selected", fg=self.colors['text_secondary'])
+            self.log_message("🗑️ Cleared uploaded files", "INFO")
         except Exception as e:
             self.log_message(f"❌ Error clearing uploaded files: {e}", "ERROR")
     
-    def toggle_progress_display(self):
-        """Toggle the display of detailed progress indicators"""
-        if self.show_progress_var.get():
-            # Show progress details
-            self.progress_canvas.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 1))
-            self.progress_scrollbar.grid(row=2, column=1, sticky=(tk.N, tk.S), pady=(0, 1))
-        else:
-            # Hide progress details
-            self.progress_canvas.grid_remove()
-            self.progress_scrollbar.grid_remove()
-    
-    def get_effective_flows_source(self):
-        """Get the effective flows source based on uploaded files and user selection"""
-        # If both files are uploaded, use uploaded version
-        if self.uploaded_flows_file and self.uploaded_package_file:
-            return "uploaded"
-        
-        # If only flows.json is uploaded, use uploaded version
-        if self.uploaded_flows_file:
-            return "uploaded"
-        
-        # Otherwise use user selection
-        return self.flows_source_var.get()
-    
-    def get_effective_package_source(self):
-        """Get the effective package source based on uploaded files and user selection"""
-        # If both files are uploaded, use uploaded version
-        if self.uploaded_flows_file and self.uploaded_package_file:
-            return "uploaded"
-        
-        # If only package.json is uploaded, use uploaded version
-        if self.uploaded_package_file:
-            return "uploaded"
-        
-        # Otherwise use user selection
-        return self.package_source_var.get()
-    
-    def validate_flows_json(self, file_path):
-        """Validate Node-RED flows.json structure"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                flows_data = json.load(f)
-            
-            # Check if it's a list (Node-RED flows format)
-            if not isinstance(flows_data, list):
-                return False, "flows.json must be a JSON array"
-            
-            # Check for required Node-RED flow structure
-            has_tab = False
-            has_node = False
-            
-            for item in flows_data:
-                if not isinstance(item, dict):
-                    return False, "Each flow item must be a JSON object"
-                
-                # Check for required fields
-                if 'id' not in item or 'type' not in item:
-                    return False, "Each flow item must have 'id' and 'type' fields"
-                
-                # Check for tab (workspace) or node types
-                if item.get('type') == 'tab':
-                    has_tab = True
-                    # Validate tab structure
-                    if 'label' not in item:
-                        return False, "Tab items must have a 'label' field"
-                elif item.get('type') in ['inject', 'debug', 'function', 'switch', 'change', 'http in', 'http response', 'mqtt in', 'mqtt out', 'serial in', 'serial out']:
-                    has_node = True
-                elif item.get('type') == 'group':
-                    # Groups are valid but don't count as nodes
-                    pass
-                else:
-                    # Unknown type, but don't fail validation for custom nodes
-                    has_node = True
-            
-            # At minimum, should have at least one tab or one node
-            if not has_tab and not has_node:
-                return False, "flows.json should contain at least one tab or node"
-            
-            return True, "Valid Node-RED flows.json structure"
-            
-        except json.JSONDecodeError as e:
-            return False, f"Invalid JSON format: {e}"
-        except Exception as e:
-            return False, f"Error reading file: {e}"
-    
-    def validate_package_json(self, file_path):
-        """Validate Node-RED package.json structure"""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                package_data = json.load(f)
-            
-            # Check if it's an object
-            if not isinstance(package_data, dict):
-                return False, "package.json must be a JSON object"
-            
-            # Check for required fields
-            required_fields = ['name', 'version']
-            for field in required_fields:
-                if field not in package_data:
-                    return False, f"package.json must have '{field}' field"
-            
-            # Validate name field
-            if not isinstance(package_data['name'], str) or not package_data['name'].strip():
-                return False, "package.json 'name' field must be a non-empty string"
-            
-            # Validate version field
-            if not isinstance(package_data['version'], str) or not package_data['version'].strip():
-                return False, "package.json 'version' field must be a non-empty string"
-            
-            # Check for dependencies (optional but common)
-            if 'dependencies' in package_data:
-                if not isinstance(package_data['dependencies'], dict):
-                    return False, "package.json 'dependencies' must be an object"
-                
-                # Validate dependency format
-                for dep_name, dep_version in package_data['dependencies'].items():
-                    if not isinstance(dep_name, str) or not dep_name.strip():
-                        return False, f"Invalid dependency name: {dep_name}"
-                    if not isinstance(dep_version, str) or not dep_version.strip():
-                        return False, f"Invalid dependency version for {dep_name}: {dep_version}"
-            
-            # Check for Node-RED specific fields (optional)
-            if 'node-red' in package_data:
-                if not isinstance(package_data['node-red'], dict):
-                    return False, "package.json 'node-red' field must be an object"
-            
-            return True, "Valid Node-RED package.json structure"
-            
-        except json.JSONDecodeError as e:
-            return False, f"Invalid JSON format: {e}"
-        except Exception as e:
-            return False, f"Error reading file: {e}"
-    
     def select_all_functions(self):
         """Select all functions"""
-        for var, command, dependencies in self.function_vars:
+        for var in self.function_vars:
             var.set(True)
-        self.update_selected_functions()
+        self.log_message("✅ Selected all functions", "INFO")
     
     def select_none_functions(self):
-        """Select no functions"""
-        for var, command, dependencies in self.function_vars:
+        """Deselect all functions"""
+        for var in self.function_vars:
             var.set(False)
-        self.update_selected_functions()
+        self.log_message("❌ Deselected all functions", "INFO")
     
     def select_quick_setup(self):
-        """Select essential functions for quick setup"""
-        # Reset all first
-        self.select_none_functions()
+        """Select quick setup functions"""
+        # Deselect all first
+        for var in self.function_vars:
+            var.set(False)
         
-        # Select essential functions
-        essential_commands = ["forward", "install-docker", "install-services", "install-nodered-nodes", "import-nodered-flows", "update-nodered-auth", "reverse"]
-        for var, command, dependencies in self.function_vars:
-            if command in essential_commands:
-                var.set(True)
+        # Select quick setup functions
+        quick_setup_functions = ["forward", "install-docker", "install-services", "install-nodered-nodes", "import-nodered-flows", "update-nodered-auth"]
+        for i, (func_id, _, _) in enumerate(self.function_descriptions):
+            if func_id in quick_setup_functions:
+                self.function_vars[i].set(True)
         
-        self.update_selected_functions()
-    
-    def update_selected_functions(self):
-        """Update function selection and check dependencies"""
-        selected_count = 0
-        dependency_warnings = []
-        
-        # Check each selected function for dependencies
-        for var, command, dependencies in self.function_vars:
-            if var.get():
-                selected_count += 1
-                # Check if dependencies are met
-                for dep in dependencies:
-                    dep_var = next((v for v, c, d in self.function_vars if c == dep), None)
-                    if not dep_var or not dep_var.get():
-                        dependency_warnings.append(f"{command} requires {dep}")
-        
-        # Update summary
-        self.selected_summary.config(text=f"Selected: {selected_count} functions")
-        
-        # Show dependency warnings
-        if dependency_warnings:
-            warning_text = "⚠️ Dependencies: " + "; ".join(dependency_warnings)
-            self.selected_summary.config(text=f"Selected: {selected_count} functions - {warning_text}", foreground="orange")
-        else:
-            self.selected_summary.config(foreground="blue")
-    
-    def get_selected_functions(self):
-        """Get list of selected function commands in dependency order"""
-        # Create a mapping of command to index for ordering
-        command_order = {command: i for i, (command, _, _) in enumerate(self.function_descriptions)}
-        
-        # Get selected functions
-        selected = []
-        for var, command, dependencies in self.function_vars:
-            if var.get():
-                selected.append((command, command_order[command]))
-        
-        # Sort by original order
-        selected.sort(key=lambda x: x[1])
-        return [command for command, _ in selected]
-    
-    def update_step_progress(self, step_number, success=True):
-        """Update step progress with visual feedback"""
-        # Update progress summary
-        if success:
-            self.progress_summary.config(text=f"Step {step_number} completed successfully", foreground="green")
-            # Play success sound for completed steps
-            threading.Thread(target=lambda: play_sound("success"), daemon=True).start()
-        else:
-            self.progress_summary.config(text=f"Step {step_number} failed", foreground="red")
-            # Play error sound for failed steps
-            threading.Thread(target=lambda: play_sound("error"), daemon=True).start()
-        
-        # Update visual step indicators
-        if 0 <= step_number - 1 < len(self.step_indicators):
-            if success:
-                # Show checkmark for completed step
-                self.step_indicators[step_number - 1].config(text="✓", foreground="green", font=("Arial", 12, "bold"))
-                self.step_labels[step_number - 1].config(foreground="green")
-            else:
-                # Show X for failed step
-                self.step_indicators[step_number - 1].config(text="✗", foreground="red", font=("Arial", 12, "bold"))
-                self.step_labels[step_number - 1].config(foreground="red")
-    
-    def reset_step_indicators(self):
-        """Reset all step indicators to default state"""
-        for i in range(len(self.step_indicators)):
-            self.step_indicators[i].config(text="○", foreground="gray", font=("Arial", 10))
-            self.step_labels[i].config(foreground="gray")
-    
-    def highlight_current_step(self, step_number):
-        """Highlight the current step being executed"""
-        if 0 <= step_number - 1 < len(self.step_indicators):
-            # Reset all indicators first
-            self.reset_step_indicators()
-            # Highlight current step
-            self.step_indicators[step_number - 1].config(text="●", foreground="blue", font=("Arial", 12, "bold"))
-            self.step_labels[step_number - 1].config(foreground="blue")
-    
-    def update_time(self):
-        """Update the time display"""
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.time_label.config(text=current_time)
-        self.root.after(1000, self.update_time)
-    
-    def toggle_bot(self):
-        """Start or stop the bot"""
-        if not self.is_running:
-            self.start_bot()
-        else:
-            self.stop_bot()
+        self.log_message("⚡ Selected quick setup functions", "INFO")
     
     def start_bot(self):
-        """Start the bot in a separate thread"""
-        try:
-            self.is_running = True
-            self.start_button.config(text="Stop Bot", style="")
-            self.status_label.config(text="Status: Starting...")
-            self.progress.start()
-            
-            # Reset progress summary and step indicators
-            self.progress_summary.config(text="Starting execution...", foreground="blue")
-            self.reset_step_indicators()
-            
-            # Get configuration from GUI
-            target_ip = self.target_ip_var.get().strip() or "192.168.1.1"
-            scan_interval = int(self.scan_interval_var.get().strip() or "10")
-            username = self.username_var.get().strip() or "admin"
-            password = self.password_var.get().strip() or "admin"
-            final_ip = self.final_ip_var.get().strip() or "192.168.1.1"
-            final_password = self.final_password_var.get().strip() or "admin"
-            flows_source = self.get_effective_flows_source()
-            package_source = self.get_effective_package_source()
-            
-            # Create bot instance with GUI logging integration
-            self.bot = GUIBotWrapper(self.log_message, target_ip, scan_interval, self.update_step_progress, username, password, self.highlight_current_step, final_ip, final_password, flows_source, package_source, self.uploaded_flows_file, self.uploaded_package_file)
-            
-            # Set selected functions for the bot
-            selected_functions = self.get_selected_functions()
-            self.bot.selected_functions = selected_functions
-            
-            # Validate that functions are selected
-            if not selected_functions:
-                raise ValueError("No functions selected. Please select at least one function to run.")
-            
-            # Log the effective sources being used
-            self.log_message(f"📋 Using flows source: {flows_source}", "INFO")
-            self.log_message(f"📦 Using package source: {package_source}", "INFO")
-            
-            # Log uploaded files status
-            if self.uploaded_flows_file:
-                self.log_message(f"📁 Uploaded flows.json: {os.path.basename(self.uploaded_flows_file)}", "INFO")
-            if self.uploaded_package_file:
-                self.log_message(f"📁 Uploaded package.json: {os.path.basename(self.uploaded_package_file)}", "INFO")
-            
-            # Set Tailscale auth key from GUI input (do this in main thread)
-            tailscale_auth = self.tailscale_auth_var.get().strip()
-            if tailscale_auth and tailscale_auth != "YOUR_TAILSCALE_AUTH_KEY_HERE":
-                os.environ["TAILSCALE_AUTH_KEY"] = tailscale_auth
-            
-            # Start bot in separate thread
-            self.bot_thread = threading.Thread(target=self.run_bot, daemon=True)
-            self.bot_thread.start()
-            
-            self.log_message("Bot started successfully", "SUCCESS")
-            
-        except Exception as e:
-            self.log_message(f"Failed to start bot: {e}", "ERROR")
-            self.log_message("Please check your function selections and try again", "INFO")
-            self.is_running = False
-            self.start_button.config(text="Start Bot", style="Accent.TButton")
-            self.status_label.config(text="Status: Error")
-            self.progress.stop()
-    
-    def stop_bot(self):
-        """Stop the bot gracefully"""
-        try:
-            self.shutdown_requested = True
-            self.status_label.config(text="Status: Stopping...")
-            self.log_message("Stopping bot...", "WARNING")
-            
-            if self.bot:
-                self.bot.running = False
-            
-            # Wait for bot thread to finish
-            if self.bot_thread and self.bot_thread.is_alive():
-                self.bot_thread.join(timeout=5)
-            
-            self.is_running = False
-            self.shutdown_requested = False
-            self.start_button.config(text="Start Bot", style="Accent.TButton")
-            self.status_label.config(text="Status: Stopped")
-            self.progress.stop()
-            
-            self.log_message("Bot stopped successfully", "SUCCESS")
-            
-        except Exception as e:
-            self.log_message(f"Error stopping bot: {e}", "ERROR")
+        """Start the network bot"""
+        if self.is_running:
+            self.log_message("⚠️ Bot is already running", "WARNING")
+            return
+        
+        # Get selected functions
+        selected_functions = []
+        for i, var in enumerate(self.function_vars):
+            if var.get():
+                func_id, _, _ = self.function_descriptions[i]
+                selected_functions.append(func_id)
+        
+        if not selected_functions:
+            self.log_message("❌ Please select at least one function", "ERROR")
+            return
+        
+        # Validate Tailscale auth key if install-tailscale is selected
+        if "install-tailscale" in selected_functions:
+            if not self.validate_tailscale_auth_key():
+                self.log_message("❌ Invalid Tailscale auth key. Please fix the auth key format before proceeding.", "ERROR")
+                return
+        
+        # Update status
+        self.is_running = True
+        self.status_indicator.config(fg=self.colors['warning'])
+        self.status_label.config(text="Running")
+        self.start_bot_button.config(state=tk.DISABLED, text="🔄 Running...")
+        
+        self.log_message("🚀 Starting Bivicom Network Bot...", "INFO")
+        self.log_message(f"📋 Selected functions: {', '.join(selected_functions)}", "INFO")
+        
+        # Start bot in separate thread
+        self.bot_thread = threading.Thread(target=self.run_bot, args=(selected_functions,))
+        self.bot_thread.daemon = True
+        self.bot_thread.start()
     
     def reset_device(self):
         """Reset device to default state"""
-        try:
-            # Confirm reset action
-            if not messagebox.askyesno("Confirm Reset", 
-                                     "This will completely reset the device to default state:\n\n"
+        if self.is_running:
+            self.log_message("⚠️ Cannot reset device while bot is running", "WARNING")
+            return
+        
+        # Confirmation dialog
+        result = messagebox.askyesno(
+            "Reset Device",
+            "⚠️ WARNING: This will completely reset the device to default state!\n\n"
+            "This will:\n"
                                      "• Remove all Docker containers, images, and volumes\n"
+            "• Uninstall Docker completely\n"
                                      "• Reset network to REVERSE mode (LTE WAN)\n"
-                                     "• Change password back to admin/admin\n"
-                                     "• Reset IP address to 192.168.1.1\n"
+            "• Reset password to admin/admin\n"
                                      "• Remove all custom configurations\n\n"
-                                     "Are you sure you want to continue?"):
+            "Are you sure you want to continue?",
+            icon="warning"
+        )
+        
+        if not result:
                 return
             
-            # Get configuration from GUI (do this in main thread)
-            target_ip = self.target_ip_var.get().strip() or "192.168.1.1"
-            username = self.username_var.get().strip() or "admin"
-            password = self.password_var.get().strip() or "admin"
+        # Update status
+        self.status_indicator.config(fg=self.colors['warning'])
+        self.status_label.config(text="Resetting...")
+        self.reset_device_button.config(state=tk.DISABLED, text="🔄 Resetting...")
+        
+        self.log_message("🔄 Starting device reset...", "WARNING")
+        
+        # Start reset in separate thread
+        reset_thread = threading.Thread(target=self.run_reset_device)
+        reset_thread.daemon = True
+        reset_thread.start()
             
-            # Start reset in separate thread to avoid blocking GUI
-            self.reset_button.config(text="Resetting...", state="disabled")
-            self.status_label.config(text="Status: Resetting Device...")
-            
-            # Start reset thread
-            reset_thread = threading.Thread(target=self.run_reset_device, args=(target_ip, username, password))
-            reset_thread.daemon = True
-            reset_thread.start()
-            
-        except Exception as e:
-            self.log_message(f"Failed to start reset: {e}", "ERROR")
-            self.reset_button.config(text="Reset Device", state="normal")
-            self.status_label.config(text="Status: Error")
-    
-    def run_reset_device(self, target_ip, username, password):
-        """Run reset device command in separate thread"""
+    def run_reset_device(self):
+        """Run device reset in separate thread"""
         try:
-            self.log_message("🔄 Starting device reset...", "WARNING")
-            self.log_message(f"🎯 Target device: {target_ip}", "INFO")
-            self.log_message(f"👤 Username: {username}", "INFO")
-            
-            # Reset progress summary
-            self.progress_summary.config(text="Starting device reset...", foreground="blue")
-            
-            # Run reset command with real-time output
-            cmd = [self.script_path, "--remote", target_ip, username, password, "reset-device"]
-            self.log_message(f"🔧 Running reset command: {' '.join(cmd)}", "INFO")
-            
-            process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.STDOUT,  # Merge stderr into stdout
-                text=True, 
-                bufsize=1,  # Line buffered
-                universal_newlines=True
+            # Create bot wrapper for reset
+            bot = GUIBotWrapper(
+                gui_log_callback=self.log_message,
+                target_ip=self.target_ip_var.get(),
+                username=self.username_var.get(),
+                password=self.password_var.get()
             )
             
-            # Stream output in real-time
-            output_lines = []
-            import select
+            # Run reset device command
+            success = bot.reset_device()
             
-            # Use select for timeout handling (Unix/macOS)
-            if hasattr(select, 'select'):
-                while True:
-                    # Check if process is still running
-                    if process.poll() is not None:
-                        # Process finished, read any remaining output
-                        remaining_output = process.stdout.read()
-                        if remaining_output:
-                            for line in remaining_output.splitlines():
-                                if line.strip():
-                                    self.log_message(f"📄 {line.strip()}", "INFO")
-                                    print(f"[RESET OUTPUT] {line.strip()}")
-                        break
-                    
-                    # Check for output with timeout
-                    ready, _, _ = select.select([process.stdout], [], [], 1.0)  # 1 second timeout
-                    if ready:
-                        output = process.stdout.readline()
-                        if output:
-                            output_line = output.strip()
-                            if output_line:  # Only log non-empty lines
-                                self.log_message(f"📄 {output_line}", "INFO")
-                                output_lines.append(output_line)
-                                # Also print to Python terminal
-                                print(f"[RESET OUTPUT] {output_line}")
-            else:
-                # Fallback for Windows (no select module)
-                while True:
-                    output = process.stdout.readline()
-                    if output == '' and process.poll() is not None:
-                        break
-                    if output:
-                        output_line = output.strip()
-                        if output_line:  # Only log non-empty lines
-                            self.log_message(f"📄 {output_line}", "INFO")
-                            output_lines.append(output_line)
-                            # Also print to Python terminal
-                            print(f"[RESET OUTPUT] {output_line}")
-            
-            # Wait for process to complete and get return code
-            return_code = process.wait()
-            
-            if return_code == 0:
+            if success:
                 self.log_message("✅ Device reset completed successfully!", "SUCCESS")
-                # Show success notification
-                self.show_notification("Device Reset", "Device has been reset to default state successfully!")
-                # Play completion sound
-                threading.Thread(target=lambda: play_sound("completion"), daemon=True).start()
+                play_sound("success")
             else:
-                self.log_message(f"❌ Device reset failed with return code {return_code}!", "ERROR")
+                self.log_message("❌ Device reset failed", "ERROR")
+                play_sound("error")
                 
-                # Show error notification with more details
-                error_msg = "Device reset encountered errors."
-                if any("uci: command not found" in line for line in output_lines):
-                    error_msg += "\n\nThis device may not be running OpenWrt or UCI is not installed."
-                elif any("Permission denied" in line for line in output_lines):
-                    error_msg += "\n\nPermission denied. Please check your username and password."
-                elif any("Connection refused" in line for line in output_lines):
-                    error_msg += "\n\nConnection refused. Please check if the device is reachable."
-                else:
-                    error_msg += f"\n\nReturn code: {return_code}"
-                self.show_notification("Device Reset Failed", error_msg)
-            
-            # Update UI elements in main thread
-            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
-            self.root.after(0, lambda: self.status_label.config(text="Status: Ready"))
-            self.root.after(0, lambda: self.progress_summary.config(text="Device reset completed", foreground="green"))
-                
-        except subprocess.TimeoutExpired:
-            self.log_message("⏰ Device reset timed out after 10 minutes", "ERROR")
-            self.show_notification("Device Reset Timeout", "Device reset timed out. Check device connectivity.")
-            # Update UI elements in main thread
-            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
-            self.root.after(0, lambda: self.status_label.config(text="Status: Timeout"))
         except Exception as e:
             self.log_message(f"❌ Error during device reset: {e}", "ERROR")
-            self.show_notification("Device Reset Error", f"Error during reset: {e}")
-            # Update UI elements in main thread
-            self.root.after(0, lambda: self.reset_button.config(text="Reset Device", state="normal"))
-            self.root.after(0, lambda: self.status_label.config(text="Status: Error"))
+            play_sound("error")
+        finally:
+            # Reset UI state
+            self.root.after(0, self.reset_ui_after_operation)
     
-    def run_bot(self):
-        """Run the bot (called in separate thread)"""
+    def run_bot(self, selected_functions):
+        """Run the network bot in separate thread"""
         try:
-            self.log_message("Starting network bot with 12-step configuration sequence", "INFO")
-            self.log_message("Bot will continuously scan for devices until stopped", "INFO")
+            # Create bot wrapper
+            self.bot = GUIBotWrapper(
+                gui_log_callback=self.log_message,
+                target_ip=self.target_ip_var.get(),
+                scan_interval=int(self.scan_interval_var.get()),
+                username=self.username_var.get(),
+                password=self.password_var.get(),
+                final_ip=self.final_ip_var.get(),
+                final_password=self.final_password_var.get(),
+                flows_source=self.flows_source_var.get(),
+                package_source=self.package_source_var.get(),
+                uploaded_flows_file=self.uploaded_flows_file,
+                uploaded_package_file=self.uploaded_package_file,
+                step_progress_callback=self.update_progress,
+                step_highlight_callback=self.highlight_step
+            )
             
-            # Run the bot's scan and configure loop
-            self.bot.scan_and_configure()
+            # Run the bot
+            success = self.bot.run_network_configuration_sequence(selected_functions)
             
-            # Update status when bot ends
-            if self.bot.running:
-                self.log_message("Bot stopped by user request.", "INFO")
-                self.show_notification("Bivicom Network Bot", "Bot stopped by user.")
+            if success:
+                self.log_message("🎉 Network configuration completed successfully!", "SUCCESS")
+                play_sound("completion")
+                self.config_count += 1
             else:
-                self.log_message("Bot completed successfully.", "SUCCESS")
-                self.show_notification("Bivicom Network Bot", "Bot completed successfully.")
-                # Play completion sound
-                threading.Thread(target=lambda: play_sound("completion"), daemon=True).start()
-            
-            # Update status
-            self.root.after(0, lambda: self.status_label.config(text="Status: Completed"))
-            self.root.after(0, lambda: self.progress.stop())
-            self.root.after(0, lambda: setattr(self, 'is_running', False))
-            self.root.after(0, lambda: self.start_button.config(text="Start Bot", style="Accent.TButton"))
+                self.log_message("❌ Network configuration failed", "ERROR")
+                play_sound("error")
             
         except Exception as e:
-            self.log_message(f"Bot error: {e}", "ERROR")
-            self.root.after(0, lambda: self.status_label.config(text="Status: Error"))
-            self.root.after(0, lambda: self.progress.stop())
-            self.root.after(0, lambda: setattr(self, 'is_running', False))
-            self.root.after(0, lambda: self.start_button.config(text="Start Bot", style="Accent.TButton"))
+            self.log_message(f"❌ Error during network configuration: {e}", "ERROR")
+            play_sound("error")
+        finally:
+            # Reset UI state
+            self.root.after(0, self.reset_ui_after_operation)
     
-    def log_message(self, message: str, level: str = "INFO"):
-        """Add a message to the log queue"""
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        formatted_message = f"[{timestamp}] [{level}] {message}\n"
-        self.log_queue.put((formatted_message, level))
+    def reset_ui_after_operation(self):
+        """Reset UI state after operation completes"""
+        self.is_running = False
+        self.status_indicator.config(fg=self.colors['success'])
+        self.status_label.config(text="Ready")
+        self.start_bot_button.config(state=tk.NORMAL, text="🚀 Start Bot")
+        self.reset_device_button.config(state=tk.NORMAL, text="🔄 Reset Device")
         
-        # Play sound based on message level
-        if level == "SUCCESS":
-            # Play success sound for successful operations
-            threading.Thread(target=lambda: play_sound("success"), daemon=True).start()
-        elif level == "ERROR":
-            # Play error sound for error messages
-            threading.Thread(target=lambda: play_sound("error"), daemon=True).start()
+        # Update statistics
+        self.scans_label.config(text=f"Scans: {self.scan_count}")
+        self.configs_label.config(text=f"Configurations: {self.config_count}")
+        self.timestamp_label.config(text=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    
+    def update_progress(self, current_step, total_steps):
+        """Update progress indicator"""
+        self.current_step = current_step
+        self.total_steps = total_steps
+        progress_text = f"Step {current_step}/{total_steps}"
+        self.log_message(f"📊 Progress: {progress_text}", "INFO")
+    
+    def highlight_step(self, step_number):
+        """Highlight current step in function list"""
+        # This could be enhanced to visually highlight the current step
+        pass
+    
+    def log_message(self, message, level="INFO"):
+        """Add message to log queue"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_entry = f"[{timestamp}] {message}"
+        self.log_queue.put((log_entry, level))
     
     def process_log_queue(self):
-        """Process messages from the log queue"""
+        """Process log messages from queue"""
         try:
             while True:
                 message, level = self.log_queue.get_nowait()
-                
-                # Insert message at the end
-                self.log_text.insert(tk.END, message, level)
-                
-                # Auto-scroll to bottom
-                self.log_text.see(tk.END)
-                
-                # Limit log size (keep last 1000 lines)
-                lines = self.log_text.get("1.0", tk.END).split('\n')
-                if len(lines) > 1000:
-                    self.log_text.delete("1.0", f"{len(lines) - 1000}.0")
-                
+                self.add_log_message(message, level)
         except queue.Empty:
             pass
         
-        # Schedule next processing
+        # Schedule next check
         self.root.after(100, self.process_log_queue)
     
-    def show_notification(self, title: str, message: str):
-        """Show system notification"""
-        # Play sound based on notification type
-        if "Error" in title or "Failed" in title or "Timeout" in title:
-            threading.Thread(target=lambda: play_sound("error"), daemon=True).start()
-        else:
-            threading.Thread(target=lambda: play_sound("success"), daemon=True).start()
-        
+    def add_log_message(self, message, level="INFO"):
+        """Add message to log display"""
         try:
-            if platform.system() == "Darwin":  # macOS
-                subprocess.run(["osascript", "-e", 
-                              f'display notification "{message}" with title "{title}"'])
-            elif platform.system() == "Windows":
-                # Windows notification
-                import winsound
-                winsound.MessageBeep(winsound.MB_ICONINFORMATION)
-                messagebox.showinfo(title, message)
-            else:  # Linux
-                subprocess.run(["notify-send", title, message])
-        except Exception as e:
-            # Fallback to messagebox
-            messagebox.showinfo(title, message)
+            if hasattr(self, 'log_text') and self.log_text.winfo_exists():
+                self.log_text.config(state=tk.NORMAL)
+                self.log_text.insert(tk.END, message + "\n", level)
+                self.log_text.see(tk.END)
+                self.log_text.config(state=tk.DISABLED)
+        except tk.TclError:
+            # Widget doesn't exist yet, skip this message
+            pass
     
     def signal_handler(self, signum, frame):
         """Handle system signals for graceful shutdown"""
-        self.log_message("Received shutdown signal", "WARNING")
+        self.log_message("🛑 Received shutdown signal", "WARNING")
+        self.shutdown_requested = True
         self.on_closing()
     
     def on_closing(self):
-        """Handle window close event"""
+        """Handle window closing"""
         if self.is_running:
-            if messagebox.askokcancel("Quit", "Bot is running. Do you want to stop it and quit?"):
-                self.stop_bot()
-                self.root.destroy()
-        else:
-            self.root.destroy()
+            self.log_message("🛑 Stopping bot...", "WARNING")
+            self.is_running = False
+            if self.bot:
+                self.bot.running = False
+        
+        self.log_message("👋 Bivicom Network Bot GUI closed", "INFO")
+        self.root.quit()
+        self.root.destroy()
+    
+    def validate_tailscale_auth_key(self, *args):
+        """Validate Tailscale auth key format"""
+        try:
+            auth_key = self.tailscale_auth_key_var.get()
+            
+            if not auth_key:
+                self.tailscale_validation_label.config(text="⚠️ Auth key is required", fg=self.colors['warning'])
+                return False
+            
+            # Check if it starts with tskey-auth- and has proper length
+            if not auth_key.startswith('tskey-auth-'):
+                self.tailscale_validation_label.config(text="❌ Invalid format: must start with 'tskey-auth-'", fg=self.colors['danger'])
+                return False
+            
+            # Check minimum length (tskey-auth- + at least 20 characters)
+            if len(auth_key) < 30:
+                self.tailscale_validation_label.config(text="❌ Invalid format: auth key too short", fg=self.colors['danger'])
+                return False
+            
+            # Check for valid characters (alphanumeric and hyphens)
+            import re
+            if not re.match(r'^tskey-auth-[a-zA-Z0-9\-]+$', auth_key):
+                self.tailscale_validation_label.config(text="❌ Invalid format: contains invalid characters", fg=self.colors['danger'])
+                return False
+            
+            self.tailscale_validation_label.config(text="✅ Valid auth key format", fg=self.colors['success'])
+            return True
+            
+        except Exception as e:
+            self.tailscale_validation_label.config(text=f"❌ Validation error: {str(e)}", fg=self.colors['danger'])
+            return False
+    
+    def create_tooltip(self, widget, text):
+        """Create a tooltip for a widget"""
+        def show_tooltip(event):
+            tooltip = tk.Toplevel()
+            tooltip.wm_overrideredirect(True)
+            tooltip.wm_geometry(f"+{event.x_root+10}+{event.y_root+10}")
+            
+            label = tk.Label(tooltip, text=text, 
+                           font=("SF Pro Text", 9),
+                           bg="#2C2C2C", fg="white",
+                           relief=tk.SOLID, borderwidth=1,
+                           padx=8, pady=4)
+            label.pack()
+            
+            widget.tooltip = tooltip
+        
+        def hide_tooltip(event):
+            if hasattr(widget, 'tooltip'):
+                widget.tooltip.destroy()
+                del widget.tooltip
+        
+        widget.bind("<Enter>", show_tooltip)
+        widget.bind("<Leave>", hide_tooltip)
+    
+    def tailscale_down(self):
+        """Stop Tailscale container on remote device"""
+        if not self.validate_tailscale_auth_key():
+            self.log_message("❌ Invalid auth key format. Please fix before proceeding.", "ERROR")
+            return
+        
+        target_ip = self.target_ip_var.get()
+        username = self.username_var.get()
+        password = self.password_var.get()
+        
+        self.log_message(f"🔴 Stopping Tailscale container on remote device {target_ip}...", "INFO")
+        
+        # Create a simple bot wrapper for this single command
+        try:
+            bot = GUIBotWrapper(
+                gui_log_callback=self.log_message,
+                target_ip=target_ip,
+                username=username,
+                password=password
+            )
+            
+            # Execute tailscale-down command
+            result = bot.execute_single_command("tailscale-down")
+            
+            if result:
+                self.log_message("✅ Tailscale stopped successfully on remote device", "SUCCESS")
+            else:
+                self.log_message("❌ Failed to stop Tailscale on remote device", "ERROR")
+                
+        except Exception as e:
+            self.log_message(f"❌ Error stopping Tailscale on remote device: {str(e)}", "ERROR")
+    
+    def tailscale_up(self):
+        """Start Tailscale container with current auth key on remote device"""
+        if not self.validate_tailscale_auth_key():
+            self.log_message("❌ Invalid auth key format. Please fix before proceeding.", "ERROR")
+            return
+        
+        target_ip = self.target_ip_var.get()
+        username = self.username_var.get()
+        password = self.password_var.get()
+        auth_key = self.tailscale_auth_key_var.get()
+        
+        self.log_message(f"🟢 Starting Tailscale container on remote device {target_ip} with new auth key...", "INFO")
+        
+        # Create a simple bot wrapper for this single command
+        try:
+            bot = GUIBotWrapper(
+                gui_log_callback=self.log_message,
+                target_ip=target_ip,
+                username=username,
+                password=password
+            )
+            
+            # Execute tailscale-up command with auth key
+            result = bot.execute_single_command("tailscale-up", auth_key)
+            
+            if result:
+                self.log_message("✅ Tailscale started successfully on remote device", "SUCCESS")
+            else:
+                self.log_message("❌ Failed to start Tailscale on remote device", "ERROR")
+                
+        except Exception as e:
+            self.log_message(f"❌ Error starting Tailscale on remote device: {str(e)}", "ERROR")
+    
+    def tailscale_restart(self):
+        """Restart Tailscale container on remote device (down then up)"""
+        if not self.validate_tailscale_auth_key():
+            self.log_message("❌ Invalid auth key format. Please fix before proceeding.", "ERROR")
+            return
+        
+        target_ip = self.target_ip_var.get()
+        self.log_message(f"🔄 Restarting Tailscale container on remote device {target_ip}...", "INFO")
+        
+        # First stop
+        self.tailscale_down()
+        
+        # Wait a moment
+        import time
+        time.sleep(2)
+        
+        # Then start
+        self.tailscale_up()
+    
+    def tailscale_submit_auth_key(self):
+        """Submit new auth key to remote device and restart Tailscale"""
+        if not self.validate_tailscale_auth_key():
+            self.log_message("❌ Invalid auth key format. Please fix before proceeding.", "ERROR")
+            return
+        
+        target_ip = self.target_ip_var.get()
+        username = self.username_var.get()
+        password = self.password_var.get()
+        auth_key = self.tailscale_auth_key_var.get()
+        
+        self.log_message(f"🔑 Submitting new auth key to remote device {target_ip}...", "INFO")
+        
+        # Create a simple bot wrapper for this single command
+        try:
+            bot = GUIBotWrapper(
+                gui_log_callback=self.log_message,
+                target_ip=target_ip,
+                username=username,
+                password=password
+            )
+            
+            # Restart Tailscale with new auth key
+            result = bot.execute_single_command("tailscale-restart", auth_key)
+            
+            if result:
+                self.log_message("✅ Auth key submitted and Tailscale restarted successfully on remote device", "SUCCESS")
+            else:
+                self.log_message("❌ Failed to restart Tailscale with new auth key on remote device", "ERROR")
+                
+        except Exception as e:
+            self.log_message(f"❌ Error submitting auth key to remote device: {str(e)}", "ERROR")
     
     def run(self):
-        """Start the GUI application"""
-        self.log_message("Bivicom Network Bot GUI started", "SUCCESS")
-        self.log_message("Configure settings and click 'Start Bot' to begin", "INFO")
+        """Start the GUI main loop"""
+        self.log_message("✅ Bivicom Network Bot GUI started", "SUCCESS")
+        self.log_message("ℹ️ Configure settings and click 'Start Bot' to begin", "INFO")
         self.root.mainloop()
 
+
 def main():
-    """Main function"""
+    """Main function to start the GUI application"""
     try:
         app = NetworkBotGUI()
         app.run()
+    except KeyboardInterrupt:
+        print("\n👋 Application interrupted by user")
     except Exception as e:
-        print(f"Error starting GUI: {e}")
+        print(f"❌ Error starting GUI: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

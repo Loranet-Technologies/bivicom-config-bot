@@ -86,14 +86,37 @@ check_uci_available() {
 execute_command() {
     local cmd="$1"
     local description="$2"
+    local max_retries=3
+    local retry_count=0
     
     if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
         print_status "Executing on $REMOTE_HOST: $description"
-        if [ -n "$REMOTE_SSH_KEY" ]; then
-            ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "$cmd"
-        else
-            sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "$cmd"
-        fi
+        
+        while [ $retry_count -lt $max_retries ]; do
+            if [ -n "$REMOTE_SSH_KEY" ]; then
+                ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$REMOTE_USER@$REMOTE_HOST" "$cmd"
+            else
+                sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$REMOTE_USER@$REMOTE_HOST" "$cmd"
+            fi
+            
+            local exit_code=$?
+            if [ $exit_code -eq 0 ]; then
+                return 0
+            elif [ $exit_code -eq 255 ]; then
+                # SSH connection error, retry
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                    print_warning "SSH connection failed, retrying in 2 seconds... (attempt $retry_count/$max_retries)"
+                    sleep 2
+                else
+                    print_error "SSH connection failed after $max_retries attempts"
+                    return $exit_code
+                fi
+            else
+                # Command execution error, don't retry
+                return $exit_code
+            fi
+        done
     else
         print_status "Executing locally: $description"
         eval "$cmd"
@@ -127,9 +150,19 @@ check_ssh_mode() {
             REMOTE_USER="$3"
         fi
         if [ -n "$4" ]; then
-            REMOTE_PASSWORD="$4"
+            # Check if parameter 4 is an SSH key file or password
+            if [ -f "$4" ]; then
+                REMOTE_SSH_KEY="$4"
+                print_success "Remote deployment mode enabled for $REMOTE_HOST with SSH key authentication"
+            else
+                REMOTE_PASSWORD="$4"
+                print_success "Remote deployment mode enabled for $REMOTE_HOST with password authentication"
+            fi
         fi
-        print_success "Remote deployment mode enabled for $REMOTE_HOST"
+        if [ -n "$5" ] && [ -z "$REMOTE_SSH_KEY" ]; then
+            # Only set password if SSH key wasn't already set
+            REMOTE_PASSWORD="$5"
+        fi
     fi
 }
 
@@ -157,6 +190,51 @@ configure_network_settings_forward() {
     fi
     
     print_success "UCI is available, proceeding with network configuration..."
+    
+    # Check if network is already configured correctly
+    print_status "Checking current network configuration..."
+    local current_wan_proto
+    local current_wan_ifname
+    local current_lan_proto
+    local current_lan_ifname
+    local current_lan_ip
+    
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        # Use direct SSH commands to avoid log message contamination
+        if [ -n "$REMOTE_SSH_KEY" ]; then
+            current_wan_proto=$(ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.wan.proto 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_wan_ifname=$(ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_proto=$(ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.proto 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_ifname=$(ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_ip=$(ssh -i "$REMOTE_SSH_KEY" -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set'" 2>/dev/null)
+        else
+            current_wan_proto=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.wan.proto 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_wan_ifname=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_proto=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.proto 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_ifname=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set'" 2>/dev/null)
+            current_lan_ip=$(sshpass -p "$REMOTE_PASSWORD" ssh -o StrictHostKeyChecking=no "$REMOTE_USER@$REMOTE_HOST" "sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set'" 2>/dev/null)
+        fi
+    else
+        # Use direct commands for local execution
+        current_wan_proto=$(sudo uci get network.wan.proto 2>/dev/null || echo 'not_set')
+        current_wan_ifname=$(sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set')
+        current_lan_proto=$(sudo uci get network.lan.proto 2>/dev/null || echo 'not_set')
+        current_lan_ifname=$(sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set')
+        current_lan_ip=$(sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set')
+    fi
+    
+    # Check if already configured correctly
+    if [ "$current_wan_proto" = "dhcp" ] && [ "$current_wan_ifname" = "eth1" ] && 
+       [ "$current_lan_proto" = "static" ] && [ "$current_lan_ifname" = "eth0" ] && 
+       [ "$current_lan_ip" = "192.168.1.1" ]; then
+        print_success "Network is already configured correctly for FORWARD mode"
+        print_status "WAN: eth1 (DHCP), LAN: eth0 (192.168.1.1 static)"
+        return 0
+    fi
+    
+    print_status "Network needs configuration - current state:"
+    print_status "  WAN: $current_wan_ifname ($current_wan_proto)"
+    print_status "  LAN: $current_lan_ifname ($current_lan_proto, $current_lan_ip)"
     
     # WAN Configuration (DHCP on eth1)
     print_status "Configuring WAN interface (eth1) for DHCP..."
@@ -229,6 +307,31 @@ configure_network_settings_reverse() {
     
     print_success "UCI is available, proceeding with network configuration..."
     
+    # Check if network is already configured correctly
+    print_status "Checking current network configuration..."
+    local current_wan_proto=$(execute_command "sudo uci get network.wan.proto 2>/dev/null || echo 'not_set'" "Get current WAN protocol" | tail -1)
+    local current_wan_ifname=$(execute_command "sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set'" "Get current WAN interface" | tail -1)
+    local current_lan_proto=$(execute_command "sudo uci get network.lan.proto 2>/dev/null || echo 'not_set'" "Get current LAN protocol" | tail -1)
+    local current_lan_ifname=$(execute_command "sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set'" "Get current LAN interface" | tail -1)
+    local current_lan_ip=$(execute_command "sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set'" "Get current LAN IP" | tail -1)
+    
+    # Get expected LAN IP
+    local expected_lan_ip="${CUSTOM_LAN_IP:-192.168.1.1}"
+    
+    # Check if already configured correctly for REVERSE mode
+    if [ "$current_wan_proto" = "lte" ] && ([ "$current_wan_ifname" = "enx0250f4000000" ] || [ "$current_wan_ifname" = "usb0" ]) && 
+       [ "$current_lan_proto" = "static" ] && [ "$current_lan_ifname" = "eth0" ] && 
+       [ "$current_lan_ip" = "$expected_lan_ip" ]; then
+        print_success "Network is already configured correctly for REVERSE mode"
+        print_status "WAN: enx0250f4000000 (LTE), LAN: eth0 ($expected_lan_ip static)"
+        return 0
+    fi
+    
+    print_status "Network needs configuration - current state:"
+    print_status "  WAN: $current_wan_ifname ($current_wan_proto)"
+    print_status "  LAN: $current_lan_ifname ($current_lan_proto, $current_lan_ip)"
+    print_status "  Expected: WAN=enx0250f4000000 (LTE), LAN=eth0 ($expected_lan_ip static)"
+    
     # WAN Configuration (LTE on USB device) - REVERSE
     print_status "Configuring WAN interface (enx0250f4000000) for LTE..."
     wan_commands=(
@@ -267,11 +370,10 @@ configure_network_settings_reverse() {
         fi
     done
     
-    # Change password back to admin (REVERSE specific)
-    print_status "Changing password back to admin (REVERSE mode)..."
-    configure_password_admin
+    # Skip password setting here - will be done in reset_device()
+    print_status "Password will be reset to admin/admin in the final reset step"
     
-    # Apply WAN configuration
+    # Apply WAN configuration with immediate network reload
     print_status "Applying WAN configuration with enhanced process..."
     apply_wan_config
     
@@ -280,6 +382,65 @@ configure_network_settings_reverse() {
     sleep 5
     
     print_success "Network configuration REVERSE completed (NO REBOOT)"
+}
+
+# Function to verify network configuration
+verify_network_config() {
+    local mode="$1"
+    print_status "Verifying network configuration for $mode mode..."
+    
+    # Get current configuration
+    local current_wan_proto=$(execute_command "sudo uci get network.wan.proto 2>/dev/null || echo 'not_set'" "Get current WAN protocol" | tail -1)
+    local current_wan_ifname=$(execute_command "sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set'" "Get current WAN interface" | tail -1)
+    local current_lan_proto=$(execute_command "sudo uci get network.lan.proto 2>/dev/null || echo 'not_set'" "Get current LAN protocol" | tail -1)
+    local current_lan_ifname=$(execute_command "sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set'" "Get current LAN interface" | tail -1)
+    local current_lan_ip=$(execute_command "sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set'" "Get current LAN IP" | tail -1)
+    
+    print_status "Current UCI Configuration:"
+    print_status "  WAN: $current_wan_ifname ($current_wan_proto)"
+    print_status "  LAN: $current_lan_ifname ($current_lan_proto, $current_lan_ip)"
+    
+    # Check interface status
+    print_status "Interface Status:"
+    execute_command "ip addr show | grep -E '(eth0|eth1|enx0250f4000000|usb0|br-lan):' -A 2" "Show interface status"
+    
+    # Check routing table
+    print_status "Routing Table:"
+    execute_command "ip route" "Show routing table"
+    
+    # Verify based on mode
+    if [ "$mode" = "FORWARD" ]; then
+        if [ "$current_wan_proto" = "dhcp" ] && [ "$current_wan_ifname" = "eth1" ] && 
+           [ "$current_lan_proto" = "static" ] && [ "$current_lan_ifname" = "eth0" ] && 
+           [ "$current_lan_ip" = "192.168.1.1" ]; then
+            print_success "✅ FORWARD mode configuration is CORRECT"
+            return 0
+        else
+            print_error "❌ FORWARD mode configuration is INCORRECT"
+            return 1
+        fi
+    elif [ "$mode" = "REVERSE" ]; then
+        if [ "$current_wan_proto" = "lte" ] && ([ "$current_wan_ifname" = "enx0250f4000000" ] || [ "$current_wan_ifname" = "usb0" ]) && 
+           [ "$current_lan_proto" = "static" ] && [ "$current_lan_ifname" = "eth0" ] && 
+           [ "$current_lan_ip" = "192.168.1.1" ]; then
+            print_success "✅ REVERSE mode configuration is CORRECT"
+            
+            # Additional LTE interface check
+            if execute_command "ip addr show usb0 | grep -q 'inet '" "Check LTE interface IP"; then
+                print_success "✅ LTE interface has IP address"
+            else
+                print_warning "⚠️ LTE interface is UP but no IP address assigned"
+                print_status "This may be normal if LTE modem is not connected or not configured"
+            fi
+            return 0
+        else
+            print_error "❌ REVERSE mode configuration is INCORRECT"
+            return 1
+        fi
+    fi
+    
+    print_error "Unknown mode: $mode"
+    return 1
 }
 
 # Function to apply WAN configuration with enhanced process
@@ -305,22 +466,59 @@ apply_wan_config() {
     print_status "Cleaning up empty routes..."
     cleanup_empty_routes
     
-    # Run network configuration
-    print_status "Running network configuration..."
-    if execute_command "sudo /etc/init.d/network restart" "Network restart"; then
-        print_success "Network config successful"
+    # Run network configuration using the same method as web interface
+    print_status "Running network configuration (web interface method)..."
+    
+    # Apply network configuration immediately
+    if execute_command "sudo luci-reload network" "LuCI network reload (web interface method)"; then
+        print_success "LuCI network reload successful (web interface method)"
+    # Try OpenWrt native network_config tool
+    elif execute_command "sudo /usr/sbin/network_config" "OpenWrt native network config"; then
+        print_success "OpenWrt native network config successful"
+    # Fallback to network restart
+    elif execute_command "sudo /etc/init.d/network restart" "Network restart fallback"; then
+        print_success "Network restart successful (fallback method)"
     else
-        print_error "Network config failed"
+        print_error "All network configuration methods failed"
         return 1
     fi
-    
-    # Skip luci-reload if network restart was successful
-    print_status "Skipping luci-reload - network restart already completed successfully"
     
     # Clean up routes again
     cleanup_empty_routes
     
     print_success "WAN configuration applied successfully"
+}
+
+# Function to apply WAN configuration without immediate network reload (for reset_device)
+apply_wan_config_deferred() {
+    print_status "Applying WAN configuration (deferred network reload)"
+    
+    # Fix hostname resolution
+    print_status "Fixing hostname resolution..."
+    if execute_command "grep -q 'localhost.localdomain' /etc/hosts || echo '127.0.0.1 localhost.localdomain' | sudo tee -a /etc/hosts" "Hostname resolution fix"; then
+        print_success "localhost.localdomain already in /etc/hosts"
+    fi
+    
+    # Commit UCI changes
+    print_status "Committing UCI changes..."
+    if execute_command "sudo uci commit" "UCI commit"; then
+        print_success "UCI commit successful"
+    else
+        print_error "UCI commit failed"
+        return 1
+    fi
+    
+    # Clean up empty routes
+    print_status "Cleaning up empty routes..."
+    cleanup_empty_routes
+    
+    # Skip luci-reload here - will be done at the end of reset_device()
+    print_status "Network configuration prepared (luci-reload will be executed at the end)"
+    
+    # Clean up routes again
+    cleanup_empty_routes
+    
+    print_success "WAN configuration prepared (deferred network reload)"
 }
 
 # Function to clean up empty routes
@@ -344,32 +542,88 @@ cleanup_empty_routes() {
 
 # Function to configure password back to admin
 configure_password_admin() {
-    print_status "Configuring password back to admin..."
+    print_status "Checking current password configuration..."
     
-    # Set password using UCI
-    password_commands=(
-        "sudo uci set system.@system[0].password='admin'"
-        "sudo uci commit system"
-    )
+    # Check if password is already set to admin in UCI
+    local current_password=$(execute_command "sudo uci get system.@system[0].password 2>/dev/null || echo 'not_set'" "Get current UCI password")
     
-    for cmd in "${password_commands[@]}"; do
-        print_status "Executing: $cmd"
-        if execute_command "$cmd" "Password configuration"; then
-            print_success "Command successful: $cmd"
+    if [ "$current_password" = "admin" ]; then
+        print_success "Password is already set to admin in UCI configuration"
+        # Still verify with passwd command to ensure consistency
+        print_status "Verifying password consistency with passwd command..."
+        if execute_command "echo 'admin' | sudo -S true 2>/dev/null" "Test current password"; then
+            print_success "Password is already correctly set to admin - no changes needed"
+            return 0
         else
-            print_warning "Command failed: $cmd"
+            print_warning "UCI shows admin but passwd test failed - will update for consistency"
         fi
-    done
-    
-    # Alternative method using passwd command
-    print_status "Setting password using passwd command..."
-    if execute_command "echo -e 'admin\nadmin' | sudo passwd admin" "Set password via passwd"; then
-        print_success "Password set to admin via passwd command"
-    else
-        print_warning "Password setting via passwd failed, UCI method should work"
     fi
     
-    print_success "Password configuration completed"
+    print_status "Configuring password back to admin..."
+    
+    # Set password using multiple methods (UCI for web interface, passwd for SSH)
+    uci_success=false
+    system_success=false
+    
+    # Method 1: Set password using UCI (for OpenWrt web interface)
+    print_status "Method 1: Setting password using UCI (for web interface)..."
+    
+    # First, ensure the system section exists
+    if execute_command "sudo uci show system.@system[0] >/dev/null 2>&1" "Check if system section exists"; then
+        print_success "System UCI section exists"
+    else
+        print_warning "System UCI section doesn't exist, creating it..."
+        if execute_command "sudo uci add system system" "Create system UCI section"; then
+            print_success "System UCI section created"
+        else
+            print_error "Failed to create system UCI section"
+        fi
+    fi
+    
+    # Set the password in UCI
+    if execute_command "sudo uci set system.@system[0].password='admin'" "Set password in UCI"; then
+        if execute_command "sudo uci commit system" "Commit UCI changes"; then
+            print_success "Password set to admin via UCI method (web interface)"
+            uci_success=true
+        else
+            print_error "Failed to commit UCI changes"
+        fi
+    else
+        print_error "Failed to set password in UCI"
+    fi
+    
+    # Method 2: Set system password using passwd command (for SSH login)
+    print_status "Method 2: Setting system password using passwd command (for SSH login)..."
+    if execute_command "echo -e 'admin\nadmin' | sudo passwd admin" "Set system password via passwd"; then
+        print_success "System password set to admin via passwd command (SSH login)"
+        system_success=true
+    else
+        print_warning "Password setting via passwd failed, trying chpasswd..."
+        
+        # Method 3: Fallback to chpasswd
+        print_status "Method 3: Setting system password using chpasswd (fallback)..."
+        if execute_command "echo 'admin:admin' | sudo chpasswd" "Set system password via chpasswd"; then
+            print_success "System password set to admin via chpasswd command (SSH login)"
+            system_success=true
+        else
+            print_error "Password setting via chpasswd also failed"
+        fi
+    fi
+    
+    # Check results
+    if [ "$uci_success" = true ] && [ "$system_success" = true ]; then
+        print_success "Password configuration completed successfully (both web interface and SSH)"
+        return 0
+    elif [ "$uci_success" = true ]; then
+        print_warning "UCI password set successfully, but system password failed - web interface only"
+        return 0
+    elif [ "$system_success" = true ]; then
+        print_warning "System password set successfully, but UCI password failed - SSH login only"
+        return 0
+    else
+        print_error "All password setting methods failed"
+        return 1
+    fi
 }
 
 # Function to configure custom password
@@ -383,30 +637,69 @@ configure_password_custom() {
     
     print_status "Configuring password to: $new_password"
     
-    # Set password using UCI
-    password_commands=(
-        "sudo uci set system.@system[0].password='$new_password'"
-        "sudo uci commit system"
-    )
+    # Set password using multiple methods (UCI for web interface, passwd for SSH)
+    uci_success=false
+    system_success=false
     
-    for cmd in "${password_commands[@]}"; do
-        print_status "Executing: $cmd"
-        if execute_command "$cmd" "Password configuration"; then
-            print_success "Command successful: $cmd"
-        else
-            print_warning "Command failed: $cmd"
-        fi
-    done
+    # Method 1: Set password using UCI (for OpenWrt web interface)
+    print_status "Method 1: Setting password using UCI (for web interface)..."
     
-    # Alternative method using passwd command
-    print_status "Setting password using passwd command..."
-    if execute_command "echo -e '$new_password\n$new_password' | sudo passwd admin" "Set password via passwd"; then
-        print_success "Password set to $new_password via passwd command"
+    # First, ensure the system section exists
+    if execute_command "sudo uci show system.@system[0] >/dev/null 2>&1" "Check if system section exists"; then
+        print_success "System UCI section exists"
     else
-        print_warning "Password setting via passwd failed, UCI method should work"
+        print_warning "System UCI section doesn't exist, creating it..."
+        if execute_command "sudo uci add system system" "Create system UCI section"; then
+            print_success "System UCI section created"
+        else
+            print_error "Failed to create system UCI section"
+        fi
     fi
     
-    print_success "Custom password configuration completed"
+    # Set the password in UCI
+    if execute_command "sudo uci set system.@system[0].password='$new_password'" "Set password in UCI"; then
+        if execute_command "sudo uci commit system" "Commit UCI changes"; then
+            print_success "Password set to $new_password via UCI method (web interface)"
+            uci_success=true
+        else
+            print_error "Failed to commit UCI changes"
+        fi
+    else
+        print_error "Failed to set password in UCI"
+    fi
+    
+    # Method 2: Set system password using passwd command (for SSH login)
+    print_status "Method 2: Setting system password using passwd command (for SSH login)..."
+    if execute_command "echo -e '$new_password\n$new_password' | sudo passwd admin" "Set system password via passwd"; then
+        print_success "System password set to $new_password via passwd command (SSH login)"
+        system_success=true
+    else
+        print_warning "Password setting via passwd failed, trying chpasswd..."
+        
+        # Method 3: Fallback to chpasswd
+        print_status "Method 3: Setting system password using chpasswd (fallback)..."
+        if execute_command "echo 'admin:$new_password' | sudo chpasswd" "Set system password via chpasswd"; then
+            print_success "System password set to $new_password via chpasswd command (SSH login)"
+            system_success=true
+        else
+            print_error "Password setting via chpasswd also failed"
+        fi
+    fi
+    
+    # Check results
+    if [ "$uci_success" = true ] && [ "$system_success" = true ]; then
+        print_success "Password configuration completed successfully (both web interface and SSH)"
+        return 0
+    elif [ "$uci_success" = true ]; then
+        print_warning "UCI password set successfully, but system password failed - web interface only"
+        return 0
+    elif [ "$system_success" = true ]; then
+        print_warning "System password set successfully, but UCI password failed - SSH login only"
+        return 0
+    else
+        print_error "All password setting methods failed"
+        return 1
+    fi
 }
 
 # =============================================================================
@@ -415,6 +708,58 @@ configure_password_custom() {
 
 # Function to add user to docker group
 add_user_to_docker_group() {
+    print_status "Checking if user is already in docker group..."
+    
+    # Check if user is already in docker group
+    local user_in_docker_group=false
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_USER" ]; then
+        if execute_command "groups $REMOTE_USER | grep -q docker" "Check if remote user is in docker group"; then
+            print_success "Remote user '$REMOTE_USER' is already in docker group"
+            user_in_docker_group=true
+        fi
+    elif [ "$USE_SSH" = false ]; then
+        if execute_command "groups $USER | grep -q docker" "Check if local user is in docker group"; then
+            print_success "Local user '$USER' is already in docker group"
+            user_in_docker_group=true
+        fi
+    fi
+    
+    if [ "$user_in_docker_group" = true ]; then
+        print_success "User is already in docker group"
+        
+        # Test if user can actually run Docker without sudo
+        print_status "Testing if user can run Docker without sudo..."
+        local docker_working=false
+        
+        # First check if Docker is installed
+        if ! execute_command "which docker" "Check if Docker is installed"; then
+            print_warning "Docker is not installed yet - cannot test Docker access"
+            print_status "Please install Docker first using: ./network_config.sh install-docker"
+            return 0
+        fi
+        
+        if [ "$USE_SSH" = true ] && [ -n "$REMOTE_USER" ]; then
+            if execute_command "sudo -u $REMOTE_USER docker --version" "Test Docker access for remote user"; then
+                print_success "Remote user '$REMOTE_USER' can already run Docker without sudo"
+                docker_working=true
+            fi
+        elif [ "$USE_SSH" = false ]; then
+            if execute_command "docker --version" "Test Docker access for local user"; then
+                print_success "Local user '$USER' can already run Docker without sudo"
+                docker_working=true
+            fi
+        fi
+        
+        if [ "$docker_working" = true ]; then
+            print_success "Docker group configuration is already working correctly - no changes needed"
+            return 0
+        else
+            print_warning "User is in docker group but cannot run Docker without sudo yet"
+            print_status "Group changes may require logout/login to take effect"
+            print_status "Proceeding with verification and testing..."
+        fi
+    fi
+    
     print_status "Adding user to docker group..."
     
     # Add user to docker group (if not root)
@@ -453,11 +798,159 @@ add_user_to_docker_group() {
             print_warning "User '$USER' may not be in docker group yet (group changes require logout/login)"
         fi
     fi
+    
+    # Test if user can run Docker commands without sudo
+    print_status "Testing Docker access without sudo..."
+    local docker_test_passed=false
+    
+    # First check if Docker is installed
+    print_status "Checking if Docker is installed..."
+    if ! execute_command "which docker" "Check if Docker is installed"; then
+        print_warning "Docker is not installed yet - cannot test Docker access"
+        print_status "Please install Docker first using: ./network_config.sh install-docker"
+        return 0
+    fi
+    
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_USER" ]; then
+        # For remote users, we need to test differently since we can't easily switch user context
+        print_status "Testing Docker access for remote user '$REMOTE_USER'..."
+        if execute_command "sudo -u $REMOTE_USER docker --version" "Test Docker access for remote user"; then
+            print_success "Remote user '$REMOTE_USER' can access Docker without sudo"
+            docker_test_passed=true
+        else
+            print_warning "Remote user '$REMOTE_USER' cannot access Docker without sudo yet"
+            print_status "This is normal - group changes require logout/login to take effect"
+        fi
+    elif [ "$USE_SSH" = false ]; then
+        # For local users, test directly
+        print_status "Testing Docker access for local user '$USER'..."
+        if execute_command "docker --version" "Test Docker access for local user"; then
+            print_success "Local user '$USER' can access Docker without sudo"
+            docker_test_passed=true
+        else
+            print_warning "Local user '$USER' cannot access Docker without sudo yet"
+            print_status "This is normal - group changes require logout/login to take effect"
+        fi
+    fi
+    
+    # Provide guidance based on test results
+    if [ "$docker_test_passed" = true ]; then
+        print_success "Docker group configuration is working correctly!"
+        print_status "User can now run Docker commands without sudo"
+    else
+        print_warning "Docker group changes have been applied but may not be active yet"
+        print_status "To activate group changes:"
+        print_status "  - Log out and log back in, OR"
+        print_status "  - Run: newgrp docker, OR"
+        print_status "  - Restart the terminal session"
+        print_status "After that, test with: docker --version"
+    fi
 }
 
 # =============================================================================
 # SYSTEM UTILITY FUNCTIONS
 # =============================================================================
+
+# Function to ensure internet connectivity before installation
+ensure_internet_connectivity() {
+    print_status "Checking internet connectivity before installation..."
+    
+    # Test basic internet connectivity
+    if execute_command "ping -c 1 -W 5 8.8.8.8" "Test internet connectivity"; then
+        print_success "Internet connectivity is working"
+        
+        # Test DNS resolution
+        if execute_command "ping -c 1 -W 5 google.com" "Test DNS resolution"; then
+            print_success "DNS resolution is working"
+            return 0
+        else
+            print_warning "DNS resolution failed - attempting to fix..."
+            fix_dns_configuration
+            return $?
+        fi
+    else
+        print_warning "Internet connectivity failed - attempting to fix DNS..."
+        fix_dns_configuration
+        return $?
+    fi
+}
+
+# Function to fix Docker networking issues
+fix_docker_networking() {
+    print_status "Fixing Docker networking configuration..."
+    
+    # Stop Docker service first
+    print_status "Stopping Docker service..."
+    execute_command "sudo systemctl stop docker" "Stop Docker service" || true
+    
+    # Check if iptables is available
+    if ! execute_command "which iptables" "Check if iptables is available"; then
+        print_warning "iptables not found - installing..."
+        execute_command "sudo apt-get update && sudo apt-get install -y iptables" "Install iptables"
+    fi
+    
+    # Clear existing Docker iptables rules
+    print_status "Clearing existing Docker iptables rules..."
+    execute_command "sudo iptables -t filter -F DOCKER" "Clear DOCKER filter chain" || true
+    execute_command "sudo iptables -t nat -F DOCKER" "Clear DOCKER nat chain" || true
+    execute_command "sudo iptables -t filter -D FORWARD -j DOCKER" "Remove FORWARD rule" || true
+    execute_command "sudo iptables -t nat -D PREROUTING -m addrtype --dst-type LOCAL -j DOCKER" "Remove PREROUTING rule" || true
+    execute_command "sudo iptables -t nat -D OUTPUT -m addrtype --dst-type LOCAL ! --dst 127.0.0.0/8 -j DOCKER" "Remove OUTPUT rule" || true
+    
+    # Delete existing Docker chains
+    execute_command "sudo iptables -t filter -X DOCKER" "Delete DOCKER filter chain" || true
+    execute_command "sudo iptables -t nat -X DOCKER" "Delete DOCKER nat chain" || true
+    
+    # Create Docker iptables chains
+    print_status "Creating Docker iptables chains..."
+    execute_command "sudo iptables -t filter -N DOCKER" "Create DOCKER filter chain"
+    execute_command "sudo iptables -t nat -N DOCKER" "Create DOCKER nat chain"
+    
+    # Add rules to forward traffic to DOCKER chain
+    print_status "Adding iptables rules for Docker..."
+    execute_command "sudo iptables -t filter -A FORWARD -j DOCKER" "Add FORWARD rule to DOCKER chain"
+    execute_command "sudo iptables -t nat -A PREROUTING -m addrtype --dst-type LOCAL -j DOCKER" "Add PREROUTING rule to DOCKER chain"
+    execute_command "sudo iptables -t nat -A OUTPUT -m addrtype --dst-type LOCAL ! --dst 127.0.0.0/8 -j DOCKER" "Add OUTPUT rule to DOCKER chain"
+    
+    # Configure Docker daemon to use iptables
+    print_status "Configuring Docker daemon..."
+    if ! execute_command "sudo mkdir -p /etc/docker" "Create Docker config directory"; then
+        print_warning "Failed to create Docker config directory"
+    fi
+    
+    # Create Docker daemon configuration
+    local docker_daemon_config='{
+    "iptables": true,
+    "ip-forward": true,
+    "bridge": "docker0"
+}'
+    
+    if execute_command "echo '$docker_daemon_config' | sudo tee /etc/docker/daemon.json" "Create Docker daemon config"; then
+        print_success "Docker daemon configuration created"
+    else
+        print_warning "Failed to create Docker daemon configuration"
+    fi
+    
+    # Start Docker service
+    print_status "Starting Docker service..."
+    if execute_command "sudo systemctl start docker" "Start Docker service"; then
+        print_success "Docker service started"
+        # Wait for Docker to be ready
+        sleep 5
+    else
+        print_error "Failed to start Docker service"
+        return 1
+    fi
+    
+    # Verify Docker is running
+    if execute_command "sudo docker ps" "Verify Docker is running"; then
+        print_success "Docker networking configuration fixed"
+        return 0
+    else
+        print_error "Docker networking configuration failed"
+        return 1
+    fi
+}
 
 # Function to check disk space and return available space in MB
 check_disk_space() {
@@ -656,6 +1149,12 @@ install_curl() {
         return 0
     fi
     
+    # Ensure internet connectivity before installation
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install curl: internet connectivity failed"
+        return 1
+    fi
+    
     print_status "curl not found, installing..."
     
     # Use only apt package manager
@@ -677,7 +1176,51 @@ install_curl() {
 
 # Function to fix DNS configuration
 fix_dns_configuration() {
-    print_status "Fixing DNS configuration..."
+    print_status "Checking DNS configuration..."
+    
+    # First, test if DNS is already working
+    print_status "Testing current DNS resolution..."
+    local dns_working=false
+    
+    # Try multiple DNS test methods
+    if execute_command "which dig >/dev/null 2>&1 && dig google.com +short" "Test DNS with dig"; then
+        print_success "DNS resolution working with dig"
+        dns_working=true
+    elif execute_command "which host >/dev/null 2>&1 && host google.com" "Test DNS with host"; then
+        print_success "DNS resolution working with host"
+        dns_working=true
+    elif execute_command "which nslookup >/dev/null 2>&1 && nslookup google.com" "Test DNS with nslookup"; then
+        print_success "DNS resolution working with nslookup"
+        dns_working=true
+    elif execute_command "getent hosts google.com" "Test DNS with getent"; then
+        print_success "DNS resolution working with getent"
+        dns_working=true
+    elif execute_command "ping -c 1 -W 5 google.com" "Test DNS with ping"; then
+        print_success "DNS resolution working with ping"
+        dns_working=true
+    elif execute_command "curl -s --connect-timeout 5 http://google.com >/dev/null" "Test DNS with curl"; then
+        print_success "DNS resolution working with curl"
+        dns_working=true
+    else
+        print_warning "DNS resolution test failed"
+        dns_working=false
+    fi
+    
+    # If DNS is already working, skip the fix
+    if [ "$dns_working" = true ]; then
+        print_success "DNS is already working correctly - no fix needed"
+        return 0
+    fi
+    
+    print_status "DNS is not working properly - proceeding with DNS fix..."
+    
+    # Install DNS tools if missing
+    print_status "Installing DNS tools if missing..."
+    if execute_command "which nslookup >/dev/null 2>&1 || (apt-get update -y && apt-get install -y dnsutils)" "Install DNS tools"; then
+        print_success "DNS tools available"
+    else
+        print_warning "Could not install DNS tools, will use alternative methods"
+    fi
     
     # Check current DNS configuration
     print_status "Current DNS configuration:"
@@ -696,10 +1239,29 @@ fix_dns_configuration() {
         # Create systemd-resolved configuration
         local resolved_config='[Resolve]
 DNS=8.8.8.8 8.8.4.4
-FallbackDNS=1.1.1.1 1.0.0.1'
+FallbackDNS=1.1.1.1 1.0.0.1
+DNSSEC=no
+DNSOverTLS=no
+Cache=yes
+CacheFromLocalhost=no'
         
         if execute_command "echo '$resolved_config' | sudo tee /etc/systemd/resolved.conf.d/dns_servers.conf" "Create systemd resolved config"; then
             print_success "systemd-resolved configuration created"
+        fi
+        
+        # Also configure main resolved.conf to ensure persistence
+        print_status "Configuring main systemd-resolved.conf for persistence..."
+        if execute_command "sudo cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup" "Backup original resolved.conf"; then
+            print_success "Original resolved.conf backed up"
+        fi
+        
+        # Add DNS configuration to main resolved.conf if not already present
+        if execute_command "grep -q '^DNS=' /etc/systemd/resolved.conf"; then
+            print_status "DNS configuration already present in main resolved.conf"
+        else
+            if execute_command "echo -e '\n# DNS servers configured by network_config.sh\nDNS=8.8.8.8 8.8.4.4' | sudo tee -a /etc/systemd/resolved.conf" "Add DNS to main resolved.conf"; then
+                print_success "DNS configuration added to main resolved.conf"
+            fi
         fi
         
         # Restart systemd-resolved
@@ -710,6 +1272,60 @@ FallbackDNS=1.1.1.1 1.0.0.1'
         
         # Wait for service to be ready
         sleep 3
+        
+        # Flush DNS cache
+        print_status "Flushing DNS cache..."
+        if execute_command "sudo systemctl flush-dns" "Flush DNS cache"; then
+            print_success "DNS cache flushed"
+        elif execute_command "sudo resolvectl flush-caches" "Flush DNS cache with resolvectl"; then
+            print_success "DNS cache flushed with resolvectl"
+        else
+            print_warning "Could not flush DNS cache, but configuration should still work"
+        fi
+        
+        # Configure NetworkManager DNS if present (for additional persistence)
+        print_status "Checking for NetworkManager DNS configuration..."
+        if execute_command "which nmcli >/dev/null 2>&1"; then
+            print_status "NetworkManager found, configuring DNS..."
+            # Get active connection
+            local active_connection=$(execute_command "nmcli -t -f NAME connection show --active | head -1" "Get active connection")
+            if [ -n "$active_connection" ]; then
+                print_status "Configuring DNS for connection: $active_connection"
+                if execute_command "sudo nmcli connection modify '$active_connection' ipv4.dns '8.8.8.8,8.8.4.4'" "Configure NetworkManager DNS"; then
+                    print_success "NetworkManager DNS configured"
+                fi
+                if execute_command "sudo nmcli connection modify '$active_connection' ipv4.ignore-auto-dns yes" "Disable auto DNS"; then
+                    print_success "Auto DNS disabled in NetworkManager"
+                fi
+            fi
+        else
+            print_status "NetworkManager not found, skipping NetworkManager DNS configuration"
+        fi
+        
+        # Create a systemd service to ensure DNS persistence across reboots
+        print_status "Creating DNS persistence service..."
+        local dns_service='[Unit]
+Description=Ensure DNS Configuration Persistence
+After=network.target systemd-resolved.service
+Wants=systemd-resolved.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c "if [ -f /etc/systemd/resolved.conf.d/dns_servers.conf ]; then systemctl restart systemd-resolved; fi"
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target'
+        
+        if execute_command "echo '$dns_service' | sudo tee /etc/systemd/system/dns-persistence.service" "Create DNS persistence service"; then
+            print_success "DNS persistence service created"
+            if execute_command "sudo systemctl daemon-reload" "Reload systemd daemon"; then
+                print_success "Systemd daemon reloaded"
+            fi
+            if execute_command "sudo systemctl enable dns-persistence.service" "Enable DNS persistence service"; then
+                print_success "DNS persistence service enabled"
+            fi
+        fi
         
     else
         print_status "systemd-resolved not active, configuring /etc/resolv.conf directly..."
@@ -746,23 +1362,26 @@ FallbackDNS=1.1.1.1 1.0.0.1'
     print_status "Updated DNS configuration:"
     execute_command "cat /etc/resolv.conf" "Show updated DNS config"
     
-    # Test DNS resolution with multiple methods
-    print_status "Testing DNS resolution with new configuration..."
+    # Verify DNS configuration was applied
+    print_status "Verifying DNS configuration..."
     
-    # Try dig first
-    if execute_command "dig google.com +short" "Test DNS with dig"; then
-        print_success "DNS resolution working with dig"
-    # Try host command
-    elif execute_command "host google.com" "Test DNS with host"; then
-        print_success "DNS resolution working with host"
-    # Try nslookup
-    elif execute_command "nslookup google.com" "Test DNS with nslookup"; then
-        print_success "DNS resolution working with nslookup"
-    # Try ping as last resort
-    elif execute_command "ping -c 1 google.com" "Test DNS with ping"; then
-        print_success "DNS resolution working with ping"
+    # Check systemd-resolved status if available
+    if execute_command "which resolvectl >/dev/null 2>&1"; then
+        print_status "Checking systemd-resolved status..."
+        execute_command "resolvectl status" "Check systemd-resolved status"
+        execute_command "resolvectl dns" "Check active DNS servers"
+    fi
+    
+    # Wait for DNS configuration to take effect
+    sleep 2
+    
+    # Quick verification test
+    print_status "Quick DNS verification test..."
+    if execute_command "ping -c 1 -W 5 google.com" "Quick DNS test with ping"; then
+        print_success "DNS fix appears to be working"
     else
-        print_warning "DNS resolution test failed, but configuration may still work"
+        print_warning "DNS test failed - configuration may need manual verification"
+        print_status "Please test manually: nslookup google.com"
     fi
     
     print_success "DNS configuration fixed"
@@ -772,10 +1391,26 @@ FallbackDNS=1.1.1.1 1.0.0.1'
 check_internet_dns() {
     print_status "Checking internet connectivity and DNS..."
     
+    # First, test basic internet connectivity
+    print_status "Testing basic internet connectivity..."
+    if execute_command "ping -c 1 -W 5 8.8.8.8" "Internet connectivity test"; then
+        print_success "Internet connectivity working"
+    else
+        print_warning "Internet connectivity failed - this may be the root cause"
+        print_status "Checking network interface status..."
+        execute_command "ip addr show" "Show network interfaces"
+        execute_command "ip route show" "Show routing table"
+        return 1
+    fi
+    
     # Test DNS resolution
     print_status "Testing DNS resolution..."
-    if execute_command "nslookup google.com" "DNS resolution test"; then
+    if execute_command "which nslookup >/dev/null 2>&1 && nslookup google.com" "DNS resolution test"; then
         print_success "DNS resolution working"
+    elif execute_command "which dig >/dev/null 2>&1 && dig google.com +short" "DNS resolution test with dig"; then
+        print_success "DNS resolution working with dig"
+    elif execute_command "getent hosts google.com" "DNS resolution test with getent"; then
+        print_success "DNS resolution working with getent"
     else
         print_warning "DNS resolution failed - attempting to fix..."
         fix_dns_configuration
@@ -823,12 +1458,22 @@ install_docker() {
         compose_installed=true
         compose_version=$(execute_command "docker compose version" "Get Docker Compose version")
         print_success "Docker Compose plugin is already installed: $compose_version"
+    elif execute_command "docker-compose --version" "Check if standalone docker-compose is installed"; then
+        compose_installed=true
+        compose_version=$(execute_command "docker-compose --version" "Get docker-compose version")
+        print_success "Standalone docker-compose is already installed: $compose_version"
     fi
     
     # If both are installed, we're done
     if [ "$docker_installed" = true ] && [ "$compose_installed" = true ]; then
-        print_success "Both Docker and Docker Compose plugin are already installed"
+        print_success "Both Docker and Docker Compose are already installed"
         return 0
+    fi
+    
+    # Ensure internet connectivity before installation
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Docker: internet connectivity failed"
+        return 1
     fi
     
     # Ensure sufficient disk space before installation
@@ -866,20 +1511,68 @@ install_docker() {
             print_success "Keyrings directory created"
         fi
         
-        if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg" "Add Docker GPG key"; then
-            print_success "Docker GPG key added"
+        # Remove existing GPG key if it exists to avoid conflicts
+        execute_command "sudo rm -f /etc/apt/keyrings/docker.gpg" "Remove existing Docker GPG key"
+        
+        # Try multiple methods to add the GPG key
+        gpg_added=false
+        
+        # Method 1: Direct curl and gpg dearmor
+        print_status "Attempting to add Docker GPG key (method 1)..."
+        if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --dearmor -o /etc/apt/keyrings/docker.gpg" "Add Docker GPG key via curl and gpg"; then
+            gpg_added=true
+            print_success "Docker GPG key added successfully (method 1)"
         else
-            print_error "Failed to add Docker GPG key"
+            print_warning "Method 1 failed, trying alternative method..."
+            
+            # Method 2: Download to temp file first, then process
+            print_status "Attempting to add Docker GPG key (method 2)..."
+            if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /tmp/docker.gpg.tmp" "Download Docker GPG key to temp file"; then
+                if execute_command "sudo gpg --batch --dearmor -o /etc/apt/keyrings/docker.gpg /tmp/docker.gpg.tmp" "Process Docker GPG key from temp file"; then
+                    gpg_added=true
+                    print_success "Docker GPG key added successfully (method 2)"
+                    execute_command "rm -f /tmp/docker.gpg.tmp" "Clean up temp GPG file"
+                else
+                    print_warning "Method 2 failed, trying final method..."
+                    execute_command "rm -f /tmp/docker.gpg.tmp" "Clean up temp GPG file"
+                fi
+            fi
+        fi
+        
+        # Method 3: Use apt-key as fallback (deprecated but might work)
+        if [ "$gpg_added" = false ]; then
+            print_status "Attempting to add Docker GPG key (method 3 - fallback)..."
+            if execute_command "curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -" "Add Docker GPG key via apt-key (fallback)"; then
+                gpg_added=true
+                print_success "Docker GPG key added successfully (method 3 - fallback)"
+            fi
+        fi
+        
+        if [ "$gpg_added" = false ]; then
+            print_error "Failed to add Docker GPG key with all methods"
             return 1
         fi
         
-        if execute_command "sudo chmod a+r /etc/apt/keyrings/docker.gpg" "Set GPG key permissions"; then
-            print_success "GPG key permissions set"
+        # Set permissions if the keyring file exists
+        if [ -f "/etc/apt/keyrings/docker.gpg" ]; then
+            if execute_command "sudo chmod a+r /etc/apt/keyrings/docker.gpg" "Set GPG key permissions"; then
+                print_success "GPG key permissions set"
+            fi
         fi
         
         # Set up the stable Docker repository
         print_status "Setting up Docker repository..."
-        if execute_command "echo \"deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null" "Add Docker repository"; then
+        
+        # Choose the appropriate repository format based on which GPG method worked
+        if [ -f "/etc/apt/keyrings/docker.gpg" ]; then
+            # Use modern keyring format
+            repo_line="deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable"
+        else
+            # Use legacy format (for apt-key fallback)
+            repo_line="deb [arch=\$(dpkg --print-architecture)] https://download.docker.com/linux/ubuntu \$(lsb_release -cs) stable"
+        fi
+        
+        if execute_command "echo \"$repo_line\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null" "Add Docker repository"; then
             print_success "Docker repository added"
         else
             print_error "Failed to add Docker repository"
@@ -895,7 +1588,7 @@ install_docker() {
             return 1
         fi
         
-        # Install Docker engine, CLI, containerd, and Docker Compose plugin
+        # Install Docker engine, CLI, containerd, and Docker Compose plugin (single reliable method)
         print_status "Installing Docker engine, CLI, containerd, and Docker Compose plugin..."
         if execute_command "sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin" "Install Docker packages"; then
             print_success "Docker packages installed successfully"
@@ -952,13 +1645,13 @@ install_docker() {
         return 1
     fi
     
-    # Verify Docker Compose plugin installation
-    print_status "Verifying Docker Compose plugin installation..."
+    # Verify Docker Compose installation (plugin should be installed with Docker CE)
+    print_status "Verifying Docker Compose installation..."
     if execute_command "docker compose version" "Verify Docker Compose plugin"; then
         compose_version=$(execute_command "docker compose version" "Get Docker Compose version")
         print_success "Docker Compose plugin verified: $compose_version"
     else
-        print_error "Docker Compose plugin verification failed"
+        print_error "Docker Compose plugin installation failed - this should not happen with Docker CE installation"
         return 1
     fi
     
@@ -981,6 +1674,28 @@ install_nodered_docker() {
     if execute_command "sudo docker ps | grep nodered" "Check if Node-RED is running"; then
         print_success "Node-RED container is already running, skipping installation"
         return 0
+    fi
+    
+    # Check if Node-RED container exists but is stopped
+    if execute_command "sudo docker ps -a | grep nodered" "Check if Node-RED container exists"; then
+        print_status "Node-RED container exists but is stopped - starting it..."
+        if execute_command "sudo docker start nodered" "Start existing Node-RED container"; then
+            print_success "Node-RED container started successfully"
+            return 0
+        else
+            print_warning "Failed to start existing Node-RED container - will recreate"
+        fi
+    fi
+    
+    # Ensure internet connectivity before installation (needed for Docker image download)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Node-RED: internet connectivity failed"
+        return 1
+    fi
+    
+    # Fix Docker networking issues before starting containers
+    if ! fix_docker_networking; then
+        print_warning "Docker networking fix failed, but continuing with installation"
     fi
     
     # Create Node-RED data directory
@@ -1396,6 +2111,28 @@ install_portainer_docker() {
         return 0
     fi
     
+    # Check if Portainer container exists but is stopped
+    if execute_command "sudo docker ps -a | grep portainer" "Check if Portainer container exists"; then
+        print_status "Portainer container exists but is stopped - starting it..."
+        if execute_command "sudo docker start portainer" "Start existing Portainer container"; then
+            print_success "Portainer container started successfully"
+            return 0
+        else
+            print_warning "Failed to start existing Portainer container - will recreate"
+        fi
+    fi
+    
+    # Ensure internet connectivity before installation (needed for Docker image download)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Portainer: internet connectivity failed"
+        return 1
+    fi
+    
+    # Fix Docker networking issues before starting containers
+    if ! fix_docker_networking; then
+        print_warning "Docker networking fix failed, but continuing with installation"
+    fi
+    
     # Create Portainer data directory
     print_status "Creating Portainer data directory..."
     if execute_command "sudo mkdir -p /data/portainer" "Create Portainer directory"; then
@@ -1530,6 +2267,28 @@ install_restreamer_docker() {
         return 0
     fi
     
+    # Check if Restreamer container exists but is stopped
+    if execute_command "sudo docker ps -a | grep restreamer" "Check if Restreamer container exists"; then
+        print_status "Restreamer container exists but is stopped - starting it..."
+        if execute_command "sudo docker start restreamer" "Start existing Restreamer container"; then
+            print_success "Restreamer container started successfully"
+            return 0
+        else
+            print_warning "Failed to start existing Restreamer container - will recreate"
+        fi
+    fi
+    
+    # Ensure internet connectivity before installation (needed for Docker image download)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Restreamer: internet connectivity failed"
+        return 1
+    fi
+    
+    # Fix Docker networking issues before starting containers
+    if ! fix_docker_networking; then
+        print_warning "Docker networking fix failed, but continuing with installation"
+    fi
+    
     # Create Restreamer data directory
     print_status "Creating Restreamer data directory..."
     if execute_command "sudo mkdir -p /data/restreamer" "Create Restreamer directory"; then
@@ -1576,14 +2335,15 @@ networks:
     
     # Create environment file for Restreamer
     print_status "Creating Restreamer environment configuration..."
-    local restreamer_env='# Restreamer Environment Configuration
+    
+    # Write environment file line by line to avoid SSH issues with multi-line strings
+    if execute_command "sudo tee /data/restreamer/.env > /dev/null << 'EOF'
+# Restreamer Environment Configuration
 RS_USERNAME=admin
 RS_PASSWORD=L@ranet2025
 RS_LOGLEVEL=info
-RS_DEBUG=false'
-    
-    # Write environment file
-    if execute_command "echo '$restreamer_env' | sudo tee /data/restreamer/.env > /dev/null" "Create Restreamer environment file"; then
+RS_DEBUG=false
+EOF" "Create Restreamer environment file"; then
         print_success "Restreamer environment file created"
     else
         print_error "Failed to create Restreamer environment file"
@@ -1706,22 +2466,32 @@ install_nodered_nodes() {
         return 1
     fi
     
+    # Ensure internet connectivity before installation (needed for npm package downloads)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Node-RED nodes: internet connectivity failed"
+        return 1
+    fi
+    
     # Determine package.json source based on parameter or auto-detect
-    local flows_source_type="${FLOWS_SOURCE:-auto}"
+    local package_source_type="${PACKAGE_SOURCE:-${FLOWS_SOURCE:-auto}}"
     local package_file=""
     local package_source=""
     
-    if [ "$flows_source_type" = "github" ]; then
+    if [ "$package_source_type" = "github" ]; then
         # Force GitHub download
         print_status "Forcing GitHub download for package.json..."
         if download_package_from_github; then
-            package_file="/home/admin/package.json"
+            if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+                package_file="/home/$REMOTE_USER/package.json"
+            else
+                package_file="$HOME/package.json"
+            fi
             package_source="GitHub download (forced)"
         else
             print_error "Failed to download package.json from GitHub"
             return 1
         fi
-    elif [ "$flows_source_type" = "local" ]; then
+    elif [ "$package_source_type" = "local" ]; then
         # Force local file search
         print_status "Searching for local package.json files..."
         if [ -f "./nodered_flows_backup/package.json" ]; then
@@ -1743,6 +2513,15 @@ install_nodered_nodes() {
             print_error "  - ~/nodered_flows_backup/package.json"
             return 1
         fi
+    elif [ "$package_source_type" = "uploaded" ]; then
+        # Use uploaded package.json file
+        if [ -n "$UPLOADED_PACKAGE_FILE" ] && [ -f "$UPLOADED_PACKAGE_FILE" ]; then
+            package_file="$UPLOADED_PACKAGE_FILE"
+            package_source="uploaded file"
+        else
+            print_error "No uploaded package.json file specified or file not found"
+            return 1
+        fi
     else
         # Auto-detect (default behavior)
         print_status "Auto-detecting package.json source..."
@@ -1761,7 +2540,11 @@ install_nodered_nodes() {
         else
             print_status "No local package.json found, downloading from GitHub..."
             if download_package_from_github; then
-                package_file="/home/admin/package.json"
+                if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+                    package_file="/home/$REMOTE_USER/package.json"
+                else
+                    package_file="$HOME/package.json"
+                fi
                 package_source="GitHub download (auto-detected)"
             else
                 print_warning "Failed to download package.json from GitHub, using default nodes"
@@ -1774,26 +2557,49 @@ install_nodered_nodes() {
     if [ -n "$package_file" ] && [ "$package_source" != "default hardcoded" ]; then
         print_status "Found package.json: $package_file (source: $package_source)"
         
-        # Copy package.json to the remote system (if not already downloaded)
+        # Ensure Node-RED data directory exists and has proper permissions
+        print_status "Ensuring Node-RED data directory exists..."
+        if execute_command "sudo mkdir -p /data/nodered && sudo chown 1000:1000 /data/nodered && sudo chmod 755 /data/nodered" "Create Node-RED data directory"; then
+            print_success "Node-RED data directory ready"
+        else
+            print_warning "Could not create Node-RED data directory"
+        fi
+        
+        # Copy package.json to Node-RED data directory
         if [[ "$package_source" != *"GitHub download"* ]]; then
-            print_status "Copying package.json to remote system..."
-            if copy_to_remote "$package_file" "/home/admin/package.json" "Copy package.json"; then
-                print_success "package.json copied successfully"
+            print_status "Copying package.json to Node-RED data directory..."
+            if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+                # For remote systems, copy to temp location first, then move with sudo
+                if copy_to_remote "$package_file" "/tmp/package.json" "Copy package.json to temp location"; then
+                    if execute_command "sudo mv /tmp/package.json /data/nodered/package.json" "Move package.json to Node-RED data directory"; then
+                        print_success "package.json copied to Node-RED data directory"
+                    else
+                        print_error "Failed to move package.json to Node-RED data directory"
+                        return 1
+                    fi
+                else
+                    print_error "Failed to copy package.json to temp location"
+                    return 1
+                fi
             else
-                print_error "Failed to copy package.json"
-                return 1
+                # For local systems, copy directly to /data/nodered/
+                if copy_to_remote "$package_file" "/data/nodered/package.json" "Copy package.json to Node-RED data directory"; then
+                    print_success "package.json copied to Node-RED data directory"
+                else
+                    print_error "Failed to copy package.json to Node-RED data directory"
+                    return 1
+                fi
             fi
         else
             print_status "Package.json already downloaded to remote system, skipping copy"
         fi
         
-        # Copy package.json to Node-RED container
-        print_status "Copying package.json to Node-RED container..."
-        if execute_command "sudo docker cp /home/admin/package.json nodered:/data/package.json" "Copy package.json to container"; then
-            print_success "package.json copied to Node-RED container"
+        # Set proper permissions for the package.json file
+        print_status "Setting proper permissions for package.json file..."
+        if execute_command "sudo chown 1000:1000 /data/nodered/package.json" "Set package.json permissions"; then
+            print_success "package.json permissions set"
         else
-            print_error "Failed to copy package.json to Node-RED container"
-            return 1
+            print_warning "Could not set package.json permissions"
         fi
         
         # Install nodes from package.json
@@ -1857,8 +2663,8 @@ download_flows_from_github() {
     print_status "Downloading Node-RED flows from GitHub..."
     
     # GitHub URLs for flows (you can customize these)
-    local github_flows_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/flows.json"
-    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/package.json"
+    local github_flows_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-config-bot/main/uploaded_files/flows.json"
+    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-config-bot/main/uploaded_files/package.json"
     
     # Check if curl is available
     if ! command -v curl >/dev/null 2>&1; then
@@ -1868,7 +2674,13 @@ download_flows_from_github() {
     
     # Download flows.json to a safer location
     print_status "Downloading flows.json from GitHub..."
-    if execute_command "curl -s -L -o /home/admin/flows.json '$github_flows_url'" "Download flows.json"; then
+    local download_path
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        download_path="/home/$REMOTE_USER/flows.json"
+    else
+        download_path="$HOME/flows.json"
+    fi
+    if execute_command "curl -s -L -o $download_path '$github_flows_url'" "Download flows.json"; then
         print_success "flows.json downloaded successfully"
     else
         print_error "Failed to download flows.json from GitHub"
@@ -1877,13 +2689,13 @@ download_flows_from_github() {
     
     # Verify the downloaded file
     print_status "Verifying downloaded flows file..."
-    execute_command "ls -la /home/admin/flows.json" "Check flows file details"
-    execute_command "wc -c /home/admin/flows.json" "Check flows file size"
-    execute_command "test -f /home/admin/flows.json && echo 'File exists' || echo 'File missing'" "Test flows file existence"
-    execute_command "test -s /home/admin/flows.json && echo 'File not empty' || echo 'File is empty'" "Test flows file size"
+    execute_command "ls -la $download_path" "Check flows file details"
+    execute_command "wc -c $download_path" "Check flows file size"
+    execute_command "test -f $download_path && echo 'File exists' || echo 'File missing'" "Test flows file existence"
+    execute_command "test -s $download_path && echo 'File not empty' || echo 'File is empty'" "Test flows file size"
     
     # Use a more explicit verification
-    if execute_command "test -f /home/admin/flows.json && test -s /home/admin/flows.json" "Verify flows file exists and not empty"; then
+    if execute_command "test -f $download_path && test -s $download_path" "Verify flows file exists and not empty"; then
         print_success "Flows file verification passed"
     else
         print_error "Downloaded flows.json is empty or missing"
@@ -1907,7 +2719,7 @@ download_package_from_github() {
     print_status "Downloading package.json from GitHub..."
     
     # GitHub URL for package.json (you can customize this)
-    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-radar/main/nodered_flows/package.json"
+    local github_package_url="https://raw.githubusercontent.com/Loranet-Technologies/bivicom-config-bot/main/uploaded_files/package.json"
     
     # Check if curl is available
     if ! command -v curl >/dev/null 2>&1; then
@@ -1917,22 +2729,31 @@ download_package_from_github() {
     
     # Download package.json to a safer location
     print_status "Downloading package.json from GitHub..."
-    if execute_command "curl -s -L -o /home/admin/package.json '$github_package_url'" "Download package.json"; then
+    local download_path
+    if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+        download_path="/home/$REMOTE_USER/package.json"
+    else
+        download_path="$HOME/package.json"
+    fi
+    
+    # Download package.json and check for success
+    if execute_command "curl -s -L -f -o $download_path '$github_package_url'" "Download package.json"; then
         print_success "package.json downloaded successfully"
     else
         print_error "Failed to download package.json from GitHub"
+        execute_command "rm -f $download_path" "Clean up failed download"
         return 1
     fi
     
     # Verify the downloaded file
     print_status "Verifying downloaded file..."
-    execute_command "ls -la /home/admin/package.json" "Check file details"
-    execute_command "wc -c /home/admin/package.json" "Check file size"
-    execute_command "test -f /home/admin/package.json && echo 'File exists' || echo 'File missing'" "Test file existence"
-    execute_command "test -s /home/admin/package.json && echo 'File not empty' || echo 'File is empty'" "Test file size"
+    execute_command "ls -la $download_path" "Check file details"
+    execute_command "wc -c $download_path" "Check file size"
+    execute_command "test -f $download_path && echo 'File exists' || echo 'File missing'" "Test file existence"
+    execute_command "test -s $download_path && echo 'File not empty' || echo 'File is empty'" "Test file size"
     
     # Use a more explicit verification
-    if execute_command "test -f /home/admin/package.json && test -s /home/admin/package.json" "Verify file exists and not empty"; then
+    if execute_command "test -f $download_path && test -s $download_path" "Verify file exists and not empty"; then
         print_success "File verification passed"
     else
         print_error "Downloaded package.json is empty or missing"
@@ -1953,6 +2774,12 @@ import_nodered_flows() {
         return 1
     fi
     
+    # Ensure internet connectivity before installation (needed for GitHub downloads)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot import Node-RED flows: internet connectivity failed"
+        return 1
+    fi
+    
     # Determine flows source based on parameter or auto-detect
     local flows_source_type="${FLOWS_SOURCE:-auto}"
     local flows_file=""
@@ -1962,7 +2789,11 @@ import_nodered_flows() {
         # Force GitHub download
         print_status "Forcing GitHub download for flows..."
         if download_flows_from_github; then
-            flows_file="/home/admin/flows.json"
+            if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+                flows_file="/home/$REMOTE_USER/flows.json"
+            else
+                flows_file="$HOME/flows.json"
+            fi
             flows_source="GitHub download (forced)"
         else
             print_error "Failed to download flows from GitHub"
@@ -1990,6 +2821,15 @@ import_nodered_flows() {
             print_error "  - ~/nodered_flows_backup/flows.json"
             return 1
         fi
+    elif [ "$flows_source_type" = "uploaded" ]; then
+        # Use uploaded flows.json file
+        if [ -n "$UPLOADED_FLOWS_FILE" ] && [ -f "$UPLOADED_FLOWS_FILE" ]; then
+            flows_file="$UPLOADED_FLOWS_FILE"
+            flows_source="uploaded file"
+        else
+            print_error "No uploaded flows.json file specified or file not found"
+            return 1
+        fi
     else
         # Auto-detect (default behavior)
         print_status "Auto-detecting flows source..."
@@ -2008,7 +2848,11 @@ import_nodered_flows() {
         else
             print_status "No local flows.json found, downloading from GitHub..."
             if download_flows_from_github; then
-                flows_file="/home/admin/flows.json"
+                if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+                    flows_file="/home/$REMOTE_USER/flows.json"
+                else
+                    flows_file="$HOME/flows.json"
+                fi
                 flows_source="GitHub download (auto-detected)"
             else
                 print_error "Failed to download flows from GitHub and no local flows.json found"
@@ -2023,59 +2867,57 @@ import_nodered_flows() {
     
     print_status "Found flows file: $flows_file (source: $flows_source)"
     
-    # Copy flows.json to the remote system (if not already downloaded)
+    # Ensure Node-RED data directory exists and has proper permissions
+    print_status "Ensuring Node-RED data directory exists..."
+    if execute_command "sudo mkdir -p /data/nodered && sudo chown 1000:1000 /data/nodered && sudo chmod 755 /data/nodered" "Create Node-RED data directory"; then
+        print_success "Node-RED data directory ready"
+    else
+        print_warning "Could not create Node-RED data directory"
+    fi
+    
+    # Copy flows.json to Node-RED data directory
     if [[ "$flows_source" != *"GitHub download"* ]]; then
-        print_status "Copying flows.json to remote system..."
-        if copy_to_remote "$flows_file" "/home/admin/flows.json" "Copy flows file"; then
-            print_success "Flows file copied successfully"
+        print_status "Copying flows.json to Node-RED data directory..."
+        if [ "$USE_SSH" = true ] && [ -n "$REMOTE_HOST" ]; then
+            # For remote systems, copy to temp location first, then move with sudo
+            if copy_to_remote "$flows_file" "/tmp/flows.json" "Copy flows file to temp location"; then
+                if execute_command "sudo mv /tmp/flows.json /data/nodered/flows.json" "Move flows file to Node-RED data directory"; then
+                    print_success "Flows file copied to Node-RED data directory"
+                else
+                    print_error "Failed to move flows file to Node-RED data directory"
+                    return 1
+                fi
+            else
+                print_error "Failed to copy flows file to temp location"
+                return 1
+            fi
         else
-            print_error "Failed to copy flows file"
-            return 1
+            # For local systems, copy directly to /data/nodered/
+            if copy_to_remote "$flows_file" "/data/nodered/flows.json" "Copy flows file to Node-RED data directory"; then
+                print_success "Flows file copied to Node-RED data directory"
+            else
+                print_error "Failed to copy flows file to Node-RED data directory"
+                return 1
+            fi
         fi
     else
         print_status "Flows.json already downloaded to remote system, skipping copy"
     fi
     
-    # Stop Node-RED container to import flows
-    print_status "Stopping Node-RED container for flow import..."
-    if execute_command "sudo docker stop nodered" "Stop Node-RED container"; then
-        print_success "Node-RED container stopped"
-    else
-        print_error "Failed to stop Node-RED container"
-        return 1
-    fi
-    
-    # Backup existing flows
-    print_status "Backing up existing flows..."
-    if execute_command "sudo docker cp nodered:/data/flows.json /tmp/flows_backup.json 2>/dev/null || echo 'No existing flows to backup'" "Backup existing flows"; then
-        print_success "Existing flows backed up (if any)"
-    else
-        print_warning "Could not backup existing flows"
-    fi
-    
-    # Copy new flows to container
-    print_status "Importing new flows to Node-RED container..."
-    if execute_command "sudo docker cp /home/admin/flows.json nodered:/data/flows.json" "Import flows to container"; then
-        print_success "Flows imported to Node-RED container"
-    else
-        print_error "Failed to import flows to container"
-        return 1
-    fi
-    
-    # Set proper permissions
+    # Set proper permissions for the flows file
     print_status "Setting proper permissions for flows file..."
-    if execute_command "sudo docker exec nodered chown 1000:1000 /data/flows.json" "Set flows permissions"; then
+    if execute_command "sudo chown 1000:1000 /data/nodered/flows.json" "Set flows permissions"; then
         print_success "Flows permissions set"
     else
         print_warning "Could not set flows permissions"
     fi
     
-    # Start Node-RED container
-    print_status "Starting Node-RED container with new flows..."
-    if execute_command "sudo docker start nodered" "Start Node-RED container"; then
-        print_success "Node-RED container started"
+    # Restart Node-RED container to load new flows
+    print_status "Restarting Node-RED container to load new flows..."
+    if execute_command "sudo docker restart nodered" "Restart Node-RED container"; then
+        print_success "Node-RED container restarted"
     else
-        print_error "Failed to start Node-RED container"
+        print_error "Failed to restart Node-RED container"
         return 1
     fi
     
@@ -2091,21 +2933,41 @@ import_nodered_flows() {
         return 1
     fi
     
-    # Clean up temporary files
-    print_status "Cleaning up temporary files..."
-    execute_command "rm -f /home/admin/flows.json" "Clean up flows file"
-    
     print_success "Node-RED flows import completed"
 }
 
+
 # Function to install Tailscale with Docker
 install_tailscale_docker() {
+    local custom_auth_key="$1"
     print_status "Installing Tailscale with Docker..."
     
     # Check if Tailscale container is already running
     if execute_command "sudo docker ps | grep tailscale" "Check if Tailscale is running"; then
         print_success "Tailscale container is already running, skipping installation"
         return 0
+    fi
+    
+    # Check if Tailscale container exists but is stopped
+    if execute_command "sudo docker ps -a | grep tailscale" "Check if Tailscale container exists"; then
+        print_status "Tailscale container exists but is stopped - starting it..."
+        if execute_command "sudo docker start tailscale" "Start existing Tailscale container"; then
+            print_success "Tailscale container started successfully"
+            return 0
+        else
+            print_warning "Failed to start existing Tailscale container - will recreate"
+        fi
+    fi
+    
+    # Ensure internet connectivity before installation (needed for Docker image download)
+    if ! ensure_internet_connectivity; then
+        print_error "Cannot install Tailscale: internet connectivity failed"
+        return 1
+    fi
+    
+    # Fix Docker networking issues before starting containers
+    if ! fix_docker_networking; then
+        print_warning "Docker networking fix failed, but continuing with installation"
     fi
     
     # Create Tailscale data directory
@@ -2119,11 +2981,21 @@ install_tailscale_docker() {
     
     # Create environment file for Tailscale
     print_status "Creating Tailscale environment configuration..."
-    local tailscale_env='# Tailscale Environment Configuration
-TS_AUTHKEY=tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC
+    
+    # Use custom auth key if provided, otherwise use default
+    local auth_key="tskey-auth-kvwRxYc6o321CNTRL-6kggdogXnMdAdewR7Y7cMdNSp7yrJsSC"
+    if [ -n "$custom_auth_key" ]; then
+        auth_key="$custom_auth_key"
+        print_status "Using custom auth key provided by user"
+    else
+        print_status "Using default auth key"
+    fi
+    
+    local tailscale_env="# Tailscale Environment Configuration
+TS_AUTHKEY=$auth_key
 TS_STATE_DIR=/var/lib/tailscale
 TS_USERSPACE=false
-TS_ACCEPT_DNS=true'
+TS_ACCEPT_DNS=true"
     
     # Write environment file
     if execute_command "echo '$tailscale_env' | sudo tee /data/tailscale/.env > /dev/null" "Create Tailscale environment file"; then
@@ -2142,7 +3014,9 @@ TS_ACCEPT_DNS=true'
     
     # Create Docker Compose file for Tailscale
     print_status "Creating Tailscale Docker Compose file..."
-    local tailscale_compose='services:
+    local tailscale_compose='version: "3.8"
+
+services:
   tailscale:
     image: tailscale/tailscale:latest
     container_name: tailscale
@@ -2192,17 +3066,6 @@ TS_USERSPACE=false
 TS_ACCEPT_DNS=true
 ```
 
-### Adding Route Advertisement
-
-To advertise local network routes to other Tailscale devices, add these lines to your `.env` file:
-
-```bash
-# Add these lines to advertise local networks
-TS_ROUTES=192.168.1.0/24,192.168.14.0/24
-TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24
-```
-
-**Replace the network ranges with your actual local networks.**
 
 ## Management Commands
 
@@ -2234,14 +3097,6 @@ sudo docker exec tailscale tailscale status
 sudo docker compose logs -f tailscale
 ```
 
-### Manual Route Advertisement
-```bash
-# Advertise specific routes manually
-sudo docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24,192.168.14.0/24
-
-# Check advertised routes
-sudo docker exec tailscale tailscale status
-```
 
 ## Network Configuration
 
@@ -2250,14 +3105,6 @@ sudo docker exec tailscale tailscale status
 - **User Space**: Disabled (kernel mode for better performance)
 - **Network Mode**: Host networking for full network access
 
-### Custom Networks
-To advertise different networks, modify the `TS_ROUTES` and `TS_EXTRA_ARGS` in the `.env` file:
-
-```bash
-# Example: Advertise multiple networks
-TS_ROUTES=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
-TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
-```
 
 ## Troubleshooting
 
@@ -2266,10 +3113,6 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
 2. Check logs: `sudo docker compose logs tailscale`
 3. Verify permissions: `ls -la /data/tailscale/`
 
-### Routes Not Advertised
-1. Verify routes in `.env` file
-2. Check Tailscale status: `sudo docker exec tailscale tailscale status`
-3. Restart container: `sudo docker compose restart`
 
 ### Authentication Issues
 1. Verify auth key in `.env` file
@@ -2279,8 +3122,6 @@ TS_EXTRA_ARGS=--advertise-routes=192.168.1.0/24,192.168.14.0/24,10.0.0.0/8
 ## Security Notes
 
 - The auth key provides automatic authentication
-- Routes are only advertised to authenticated Tailscale devices
-- Use specific network ranges to limit exposure
 - Regularly rotate auth keys for security
 
 ## Support
@@ -2305,13 +3146,36 @@ For more information, visit:
         print_warning "Could not set Tailscale directory permissions"
     fi
     
-    # Start Tailscale container using Docker Compose
-    print_status "Starting Tailscale container with Docker Compose..."
-    if execute_command "cd /data/tailscale && sudo docker compose up -d" "Start Tailscale container"; then
-        print_success "Tailscale container started with Docker Compose"
+    # Check if Docker Compose is available (should be installed with Docker)
+    if execute_command "which docker-compose >/dev/null 2>&1 || docker compose version >/dev/null 2>&1" "Check Docker Compose availability"; then
+        # Start Tailscale container using Docker Compose
+        print_status "Starting Tailscale container with Docker Compose..."
+        if execute_command "cd /data/tailscale && sudo docker-compose up -d" "Start Tailscale container with docker-compose"; then
+            print_success "Tailscale container started with Docker Compose"
+        else
+            print_error "Failed to start Tailscale container with docker-compose, trying docker compose..."
+            if execute_command "cd /data/tailscale && sudo docker compose up -d" "Start Tailscale container with docker compose"; then
+                print_success "Tailscale container started with Docker Compose"
+            else
+                print_error "Failed to start Tailscale container with Docker Compose, falling back to docker run..."
+                # Fallback to docker run
+                if execute_command "sudo docker run -d --name tailscale --restart unless-stopped --cap-add=NET_ADMIN --cap-add=SYS_MODULE --device=/dev/net/tun -v /data/tailscale:/var/lib/tailscale --network host --env-file /data/tailscale/.env tailscale/tailscale:latest" "Start Tailscale container with docker run"; then
+                    print_success "Tailscale container started with Docker run"
+                else
+                    print_error "Failed to start Tailscale container"
+                    return 1
+                fi
+            fi
+        fi
     else
-        print_error "Failed to start Tailscale container"
-        return 1
+        # Docker Compose not available, use docker run
+        print_status "Docker Compose not available, using Docker run..."
+        if execute_command "sudo docker run -d --name tailscale --restart unless-stopped --cap-add=NET_ADMIN --cap-add=SYS_MODULE --device=/dev/net/tun -v /data/tailscale:/var/lib/tailscale --network host --env-file /data/tailscale/.env tailscale/tailscale:latest" "Start Tailscale container with docker run"; then
+            print_success "Tailscale container started with Docker run"
+        else
+            print_error "Failed to start Tailscale container"
+            return 1
+        fi
     fi
     
     # Wait for Tailscale to be ready
@@ -2337,10 +3201,41 @@ For more information, visit:
     print_success "Tailscale installation completed"
     print_status "Tailscale is now managed with Docker Compose in /data/tailscale/"
     print_status "Documentation: /data/tailscale/README.md"
-    print_status "Note: Routes are not automatically advertised. Configure routes manually if needed:"
-    print_status "  - Edit /data/tailscale/.env to add TS_ROUTES and TS_EXTRA_ARGS"
-    print_status "  - Or use: docker exec tailscale tailscale up --advertise-routes=192.168.1.0/24"
     print_status "Management: cd /data/tailscale && sudo docker compose [up|down|restart|logs]"
+}
+
+# Function to stop Tailscale container
+tailscale_down() {
+    print_status "Stopping Tailscale..."
+    execute_command "cd /data/tailscale && sudo docker compose down" "Stop Tailscale"
+}
+
+# Function to restart Tailscale container
+tailscale_restart() {
+    local custom_auth_key="$1"
+    print_status "Restarting Tailscale..."
+    
+    # Update auth key if provided
+    if [ -n "$custom_auth_key" ]; then
+        execute_command "echo 'TS_AUTHKEY=$custom_auth_key' | sudo tee /data/tailscale/.env > /dev/null" "Update auth key"
+    fi
+    
+    # Restart with docker compose
+    execute_command "cd /data/tailscale && sudo docker compose restart" "Restart Tailscale"
+}
+
+# Function to start Tailscale container with current auth key
+tailscale_up() {
+    local custom_auth_key="$1"
+    print_status "Starting Tailscale..."
+    
+    # Update auth key if provided
+    if [ -n "$custom_auth_key" ]; then
+        execute_command "echo 'TS_AUTHKEY=$custom_auth_key' | sudo tee /data/tailscale/.env > /dev/null" "Update auth key"
+    fi
+    
+    # Start with docker compose
+    execute_command "cd /data/tailscale && sudo docker compose up -d" "Start Tailscale"
 }
 
 # =============================================================================
@@ -2581,8 +3476,14 @@ reset_device() {
     
     # Step 9: Final network service restart (after all cleanup)
     print_status "Step 9: Final network service restart (after all cleanup)..."
-    if execute_command "sudo /etc/init.d/network restart" "Final network service restart"; then
-        print_success "Final network service restart completed"
+    
+    # Use the same method as web interface Save & Apply
+    if execute_command "sudo luci-reload network" "Final LuCI network reload (web interface method)"; then
+        print_success "Final LuCI network reload completed (web interface method)"
+    elif execute_command "sudo /usr/sbin/network_config" "Final OpenWrt native network config"; then
+        print_success "Final OpenWrt native network config completed"
+    elif execute_command "sudo /etc/init.d/network restart" "Final network service restart (fallback)"; then
+        print_success "Final network service restart completed (fallback)"
     fi
     
     print_success "Device reset completed successfully!"
@@ -2607,7 +3508,9 @@ show_help() {
     echo
     echo "Options:"
     echo "  -h, --help          Show this help message"
-    echo "  --remote HOST [USER] [PASS]  Execute commands on remote host via SSH"
+    echo "  --remote HOST [USER] [PASS|SSH_KEY]  Execute commands on remote host via SSH"
+    echo "                        If 4th parameter is a file path, it's treated as SSH key"
+    echo "                        Otherwise, it's treated as password"
     echo
     echo "Commands:"
     echo "  forward             Configure network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)"
@@ -2621,13 +3524,17 @@ show_help() {
     echo "  install-portainer   Install Portainer with Docker Compose"
     echo "  install-restreamer  Install Restreamer with Docker Compose (hardware privileges)"
     echo "  install-services    Install all Docker services (Node-RED, Portainer, Restreamer)"
-    echo "  install-nodered-nodes [SOURCE] Install Node-RED nodes from package.json (auto|local|github)"
-    echo "  import-nodered-flows [SOURCE] Import Node-RED flows (auto|local|github)"
+    echo "  install-nodered-nodes [SOURCE] Install Node-RED nodes from package.json (auto|local|github|uploaded)"
+    echo "  import-nodered-flows [SOURCE] Import Node-RED flows (auto|local|github|uploaded)"
     echo "  update-nodered-auth [PASSWORD] Update Node-RED authentication with custom password"
-    echo "  install-tailscale   Install Tailscale VPN router in Docker"
+    echo "  install-tailscale [AUTH_KEY] Install Tailscale VPN router in Docker (optional custom auth key)"
+    echo "  tailscale-down      Stop Tailscale VPN router container"
+    echo "  tailscale-up [AUTH_KEY] Start Tailscale VPN router with optional new auth key"
+    echo "  tailscale-restart [AUTH_KEY] Restart Tailscale VPN router with optional new auth key"
     echo "  install-curl        Install curl package"
     echo "  check-dns           Check internet connectivity and DNS"
     echo "  fix-dns             Fix DNS configuration by adding Google DNS (8.8.8.8)"
+    echo "  verify-network      Verify current network configuration"
     echo "  cleanup-disk        Perform aggressive disk cleanup to free space"
     echo "  reset-device        Reset device to default state (remove all Docker, reset network, restore defaults)"
     echo
@@ -2644,11 +3551,19 @@ show_help() {
     echo "  $0 install-nodered-nodes      # Install Node-RED nodes (auto-detect package.json)"
     echo "  $0 install-nodered-nodes local # Install Node-RED nodes from local package.json"
     echo "  $0 install-nodered-nodes github # Install Node-RED nodes from GitHub package.json"
+    echo "  $0 --uploaded-package file.json install-nodered-nodes uploaded # Install from uploaded package"
     echo "  $0 import-nodered-flows       # Import Node-RED flows (auto-detect source)"
     echo "  $0 import-nodered-flows local # Import Node-RED flows from local files"
     echo "  $0 import-nodered-flows github # Import Node-RED flows from GitHub"
+    echo "  $0 --uploaded-flows file.json import-nodered-flows uploaded # Import from uploaded file"
     echo "  $0 update-nodered-auth mypass # Update Node-RED password locally"
-    echo "  $0 install-tailscale          # Install Tailscale VPN router locally"
+    echo "  $0 install-tailscale          # Install Tailscale VPN router locally (default auth key)"
+    echo "  $0 install-tailscale tskey-auth-xxx  # Install Tailscale with custom auth key"
+    echo "  $0 tailscale-down             # Stop Tailscale VPN router locally"
+    echo "  $0 tailscale-up               # Start Tailscale VPN router locally (current auth key)"
+    echo "  $0 tailscale-up tskey-auth-xxx  # Start Tailscale with new auth key"
+    echo "  $0 tailscale-restart          # Restart Tailscale VPN router locally (current auth key)"
+    echo "  $0 tailscale-restart tskey-auth-xxx  # Restart Tailscale with new auth key"
     echo "  $0 install-curl               # Install curl locally"
     echo "  $0 check-dns                  # Check DNS locally"
     echo "  $0 reset-device               # Reset device to default state locally"
@@ -2687,6 +3602,60 @@ main() {
                     print_success "Remote deployment mode enabled for $REMOTE_HOST"
                 else
                     print_error "Remote host required"
+                    exit 1
+                fi
+                ;;
+            --final-ip)
+                if [ -n "$2" ]; then
+                    CUSTOM_LAN_IP="$2"
+                    shift 2
+                else
+                    print_error "Final IP required"
+                    exit 1
+                fi
+                ;;
+            --final-password)
+                if [ -n "$2" ]; then
+                    NODERED_PASSWORD="$2"
+                    shift 2
+                else
+                    print_error "Final password required"
+                    exit 1
+                fi
+                ;;
+            --flows-source)
+                if [ -n "$2" ]; then
+                    FLOWS_SOURCE="$2"
+                    shift 2
+                else
+                    print_error "Flows source required"
+                    exit 1
+                fi
+                ;;
+            --package-source)
+                if [ -n "$2" ]; then
+                    PACKAGE_SOURCE="$2"
+                    shift 2
+                else
+                    print_error "Package source required"
+                    exit 1
+                fi
+                ;;
+            --uploaded-flows)
+                if [ -n "$2" ]; then
+                    UPLOADED_FLOWS_FILE="$2"
+                    shift 2
+                else
+                    print_error "Uploaded flows file required"
+                    exit 1
+                fi
+                ;;
+            --uploaded-package)
+                if [ -n "$2" ]; then
+                    UPLOADED_PACKAGE_FILE="$2"
+                    shift 2
+                else
+                    print_error "Uploaded package file required"
                     exit 1
                 fi
                 ;;
@@ -2739,7 +3708,7 @@ main() {
             install-nodered-nodes)
                 command="install-nodered-nodes"
                 # Check if flows source is provided as next argument
-                if [[ $# -gt 0 && $2 =~ ^(auto|local|github)$ ]]; then
+                if [[ $# -gt 0 && $2 =~ ^(auto|local|github|uploaded)$ ]]; then
                     FLOWS_SOURCE="$2"
                     shift 2
                 else
@@ -2749,7 +3718,7 @@ main() {
             import-nodered-flows)
                 command="import-nodered-flows"
                 # Check if flows source is provided as next argument
-                if [[ $# -gt 0 && $2 =~ ^(auto|local|github)$ ]]; then
+                if [[ $# -gt 0 && $2 =~ ^(auto|local|github|uploaded)$ ]]; then
                     FLOWS_SOURCE="$2"
                     shift 2
                 else
@@ -2768,7 +3737,37 @@ main() {
                 ;;
             install-tailscale)
                 command="install-tailscale"
+                # Check if auth key is provided as next argument
+                if [ -n "$2" ] && [[ "$2" != -* ]]; then
+                    TAILSCALE_AUTH_KEY="$2"
+                    shift 2
+                else
+                    shift
+                fi
+                ;;
+            tailscale-down)
+                command="tailscale-down"
                 shift
+                ;;
+            tailscale-up)
+                command="tailscale-up"
+                # Check if auth key is provided as next argument
+                if [ -n "$2" ] && [[ "$2" != -* ]]; then
+                    TAILSCALE_AUTH_KEY="$2"
+                    shift 2
+                else
+                    shift
+                fi
+                ;;
+            tailscale-restart)
+                command="tailscale-restart"
+                # Check if auth key is provided as next argument
+                if [ -n "$2" ] && [[ "$2" != -* ]]; then
+                    TAILSCALE_AUTH_KEY="$2"
+                    shift 2
+                else
+                    shift
+                fi
                 ;;
             check-dns)
                 command="check-dns"
@@ -2776,6 +3775,10 @@ main() {
                 ;;
             fix-dns)
                 command="fix-dns"
+                shift
+                ;;
+            verify-network)
+                command="verify-network"
                 shift
                 ;;
             cleanup-disk)
@@ -2788,13 +3791,14 @@ main() {
                 ;;
             set-password)
                 command="set-password"
-                CUSTOM_PASSWORD="$2"
+                shift  # Move past 'set-password'
+                CUSTOM_PASSWORD="$1"  # Now $1 is the password
                 if [ -z "$CUSTOM_PASSWORD" ]; then
                     print_error "set-password requires a password argument"
                     show_help
                     exit 1
                 fi
-                shift 2
+                shift  # Move past the password
                 ;;
             reset-device)
                 command="reset-device"
@@ -2870,7 +3874,19 @@ main() {
             ;;
         install-tailscale)
             print_status "Installing Tailscale VPN router..."
-            install_tailscale_docker
+            install_tailscale_docker "$TAILSCALE_AUTH_KEY"
+            ;;
+        tailscale-down)
+            print_status "Stopping Tailscale VPN router..."
+            tailscale_down
+            ;;
+        tailscale-up)
+            print_status "Starting Tailscale VPN router..."
+            tailscale_up "$TAILSCALE_AUTH_KEY"
+            ;;
+        tailscale-restart)
+            print_status "Restarting Tailscale VPN router..."
+            tailscale_restart "$TAILSCALE_AUTH_KEY"
             ;;
         check-dns)
             print_status "Checking internet and DNS..."
@@ -2879,6 +3895,34 @@ main() {
         fix-dns)
             print_status "Fixing DNS configuration..."
             fix_dns_configuration
+            ;;
+        verify-network)
+            print_status "Verifying network configuration..."
+            # Auto-detect mode based on current configuration
+            local current_wan_proto=$(execute_command "sudo uci get network.wan.proto 2>/dev/null || echo 'not_set'" "Get current WAN protocol" | tail -1)
+            local current_wan_ifname=$(execute_command "sudo uci get network.wan.ifname 2>/dev/null || echo 'not_set'" "Get current WAN interface" | tail -1)
+            
+            if [ "$current_wan_proto" = "lte" ] && ([ "$current_wan_ifname" = "enx0250f4000000" ] || [ "$current_wan_ifname" = "usb0" ]); then
+                verify_network_config "REVERSE"
+            elif [ "$current_wan_proto" = "dhcp" ] && [ "$current_wan_ifname" = "eth1" ]; then
+                verify_network_config "FORWARD"
+            else
+                print_warning "Unknown network configuration detected - showing current state"
+                # Show current configuration without mode-specific validation
+                local current_lan_proto=$(execute_command "sudo uci get network.lan.proto 2>/dev/null || echo 'not_set'" "Get current LAN protocol")
+                local current_lan_ifname=$(execute_command "sudo uci get network.lan.ifname 2>/dev/null || echo 'not_set'" "Get current LAN interface")
+                local current_lan_ip=$(execute_command "sudo uci get network.lan.ipaddr 2>/dev/null || echo 'not_set'" "Get current LAN IP")
+                
+                print_status "Current UCI Configuration:"
+                print_status "  WAN: $current_wan_ifname ($current_wan_proto)"
+                print_status "  LAN: $current_lan_ifname ($current_lan_proto, $current_lan_ip)"
+                
+                print_status "Interface Status:"
+                execute_command "ip addr show | grep -E '(eth0|eth1|enx0250f4000000|usb0|br-lan):' -A 2" "Show interface status"
+                
+                print_status "Routing Table:"
+                execute_command "ip route" "Show routing table"
+            fi
             ;;
         cleanup-disk)
             print_status "Performing aggressive disk cleanup..."

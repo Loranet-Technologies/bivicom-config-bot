@@ -109,7 +109,6 @@ ssh admin@192.168.1.1 "docker --version && node-red --version && tailscale versi
 - Various other delay parameters for fine-tuning deployment timing
 
 **Network Configuration:**
-- `TAILSCALE_ADVERTISE_ROUTES`: Subnet routes to advertise via Tailscale
 - `TAILSCALE_ADVERTISE_TAGS`: Device tags for Tailscale identification
 
 ## High-Level Architecture
@@ -124,7 +123,7 @@ ssh admin@192.168.1.1 "docker --version && node-red --version && tailscale versi
 6. **Installation Verification**: Validates Docker, Node-RED, and Tailscale installations
 7. **Docker User Group Configuration**: Configures proper Docker permissions
 8. **Network Configuration Reversal**: Restores original LTE WAN configuration
-9. **Tailscale Setup**: Configures VPN with route advertising and device tagging
+9. **Tailscale Setup**: Configures VPN with device tagging
 10. **Master Bot Orchestration**: Completes cycle and prepares for next iteration
 
 ### Advanced Network Configuration Process
@@ -133,7 +132,9 @@ ssh admin@192.168.1.1 "docker --version && node-red --version && tailscale versi
 - UCI configuration commitment with error handling
 - Empty route cleanup to prevent routing conflicts  
 - Advanced network reload using multiple fallback methods:
-  - Primary: `sudo /etc/init.d/network restart`
+  - Primary: `sudo luci-reload network` (same as web interface Save & Apply)
+  - Secondary: `sudo /usr/sbin/network_config` (OpenWrt native tool)
+  - Fallback: `sudo /etc/init.d/network restart` (standard init script)
   - Enhanced hostname resolution fixes
   - Automatic default route management
 
@@ -184,7 +185,7 @@ DEBIAN_FRONTEND=noninteractive curl -sSL --connect-timeout 30 --max-time 300 \
 **Services Deployed:**
 - Docker container runtime with user group configuration
 - Node-RED flow-based development tool
-- Tailscale mesh VPN with route advertising
+- Tailscale mesh VPN
 
 ### Security Considerations
 
@@ -202,7 +203,6 @@ DEBIAN_FRONTEND=noninteractive curl -sSL --connect-timeout 30 --max-time 300 \
 **Tailscale Integration:**
 - 90-day authentication key rotation requirement
 - Device tagging for network identification and access control
-- Subnet route advertising based on final LAN IP configuration
 - Full mesh connectivity with route acceptance from other devices
 
 ## Build System

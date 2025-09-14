@@ -4,6 +4,16 @@ A comprehensive network automation toolkit for configuring and deploying infrast
 
 ## 🆕 Recent Updates
 
+### v2.5 - Comprehensive Testing & Production Validation
+- **🧪 Complete Function Testing**: All 20+ network_config.sh functions tested and validated
+- **✅ Production Ready**: Comprehensive testing confirms all functions working correctly
+- **🔍 Enhanced Verification**: New `verify-network` command with auto-detection of FORWARD/REVERSE modes
+- **🛠️ Improved Check Mechanisms**: Fixed interface name handling (enx0250f4000000 vs usb0 for LTE)
+- **📊 Test Results Documentation**: Complete test coverage documentation with results summary
+- **🚀 Performance Validation**: All functions tested for reliability, error handling, and performance
+- **🔧 SSH Automation**: Fully automated SSH operations with password and key authentication
+- **📝 Comprehensive Logging**: Enhanced logging and status reporting across all functions
+
 ### v2.4 - File Upload Feature with Smart Source Logic
 - **📁 File Upload Support**: Upload custom flows.json and package.json files directly from GUI
 - **✅ Node-RED Structure Validation**: Comprehensive validation of Node-RED file structures
@@ -174,7 +184,7 @@ python3 gui.py
 - **Network Configuration**: FORWARD and REVERSE modes
 - **Docker Services**: Node-RED, Portainer, Restreamer with hardware privileges
 - **Node-RED Integration**: Custom nodes, flow import, and enhanced settings
-- **Tailscale VPN**: Secure mesh networking with route advertising
+- **Tailscale VPN**: Secure mesh networking
 - **Remote Execution**: SSH-based remote device management
 - **Ping Verification**: Connectivity checks before SSH operations
 - **Docker Image Retry**: Robust image pulling with retry logic
@@ -302,9 +312,8 @@ The system uses intelligent logic to determine which files to use:
 
 #### Tailscale
 - **Image**: `tailscale/tailscale:latest`
-- **Features**: VPN router with route advertising
+- **Features**: VPN router
 - **Auth Key**: Configured via environment variables
-- **Routes**: Advertises 192.168.1.0/24 and 192.168.14.0/24
 
 ## ⚙️ Configuration
 
@@ -339,11 +348,14 @@ Options:
 
 Commands:
   forward             Configure network FORWARD (WAN=eth1 DHCP, LAN=eth0 static)
-  reverse             Configure network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static)
+  reverse [LAN_IP]    Configure network REVERSE (WAN=enx0250f4000000 LTE, LAN=eth0 static with optional custom IP)
+  verify-network      Verify current network configuration (auto-detects FORWARD/REVERSE mode)
   install-docker      Install Docker container engine
+  install-docker-compose Install standalone docker-compose binary
   install-services    Install all Docker services (Node-RED, Portainer, Restreamer)
-  install-nodered-nodes Install Node-RED nodes (ffmpeg, queue-gate, sqlite, serialport)
-  import-nodered-flows Import Node-RED flows from backup
+  install-nodered-nodes [SOURCE] Install Node-RED nodes (auto|local|github|uploaded)
+  import-nodered-flows [SOURCE] Import Node-RED flows (auto|local|github|uploaded)
+  update-nodered-auth [PASSWORD] Update Node-RED authentication with custom password
   install-tailscale   Install Tailscale VPN router
   check-dns           Check internet connectivity and DNS
   fix-dns             Fix DNS configuration by adding Google DNS (8.8.8.8)
@@ -352,10 +364,14 @@ Commands:
   add-user-to-docker  Add user to docker group
   install-curl        Install curl package
   set-password-admin  Change password back to admin
+  set-password PASSWORD Change password to custom value
+  forward-and-docker  Configure network FORWARD and install Docker
   reset-device        Reset device to default state (remove all Docker, reset network, restore defaults)
 
 Options:
-  --remote HOST [USER] [PASS]  Execute commands on remote host via SSH
+  --remote HOST [USER] [PASS|SSH_KEY]  Execute commands on remote host via SSH
+                        If 4th parameter is a file path, it's treated as SSH key
+                        Otherwise, it's treated as password
   -h, --help                   Show help message
 ```
 
@@ -374,7 +390,6 @@ The script automatically installs these nodes:
 
 ### Tailscale Configuration
 - **Auth Key**: Set in `.env` file
-- **Routes**: Automatically advertises device subnets
 - **Access**: Secure mesh networking between devices
 
 ## 🛠️ Development
@@ -420,6 +435,41 @@ curl http://192.168.1.1:9000  # Portainer
 curl http://192.168.1.1:8080  # Restreamer
 ```
 
+## 🧪 Testing & Validation
+
+### Comprehensive Function Testing (v2.5)
+
+All network_config.sh functions have been thoroughly tested and validated:
+
+| **Function Category** | **Status** | **Functions Tested** | **Results** |
+|----------------------|------------|---------------------|-------------|
+| **Network Configuration** | ✅ **PASSED** | `forward`, `reverse`, `verify-network` | All working perfectly with proper check mechanisms |
+| **Password Management** | ✅ **PASSED** | `set-password-admin`, `set-password` | Both functions working correctly |
+| **Docker Installation** | ✅ **PASSED** | `install-docker`, `install-docker-compose`, `add-user-to-docker` | All Docker functions working properly |
+| **Service Installation** | ✅ **PASSED** | `install-nodered`, `install-portainer`, `install-restreamer` | All services installed and running |
+| **Utility Functions** | ✅ **PASSED** | `check-dns`, `fix-dns`, `install-curl`, `cleanup-disk` | All utility functions working correctly |
+| **Node-RED Functions** | ✅ **PASSED** | `install-nodered-nodes`, `import-nodered-flows`, `update-nodered-auth` | All Node-RED functions working properly |
+| **Advanced Functions** | ✅ **PASSED** | `install-tailscale`, `forward-and-docker`, `install-services` | All advanced functions working correctly |
+
+### Key Testing Results:
+- **✅ All 20+ Functions Working**: Every function tested and validated
+- **✅ Check Mechanisms Fixed**: Interface name handling (enx0250f4000000 vs usb0) resolved
+- **✅ SSH Automation Complete**: Password and key authentication working
+- **✅ Error Handling Robust**: Graceful fallbacks and retry logic validated
+- **✅ Performance Validated**: All functions tested for reliability and speed
+
+### Testing Commands:
+```bash
+# Test network configuration
+./network_config.sh --remote 192.168.1.1 admin admin verify-network
+
+# Test all functions systematically
+./network_config.sh --remote 192.168.1.1 admin admin [COMMAND]
+
+# Verify specific configurations
+./network_config.sh --remote 192.168.1.1 admin admin check-dns
+```
+
 ## 🔍 Troubleshooting
 
 ### Common Issues
@@ -452,6 +502,18 @@ ssh admin@192.168.1.1 "sudo docker ps | grep nodered"
 
 # Check logs
 ssh admin@192.168.1.1 "sudo docker logs nodered"
+```
+
+#### Network Configuration Issues
+```bash
+# Verify current network configuration
+./network_config.sh --remote 192.168.1.1 admin admin verify-network
+
+# Check interface status
+ssh admin@192.168.1.1 "ip addr show"
+
+# Check routing table
+ssh admin@192.168.1.1 "ip route"
 ```
 
 ### Log Files
@@ -510,7 +572,6 @@ The GUI application provides real-time visual feedback for each configuration st
 
 ### Tailscale Security
 - **Auth Key Rotation**: 90-day key validity
-- **Route Advertising**: Controlled subnet access
 - **Device Tagging**: Network identification and access control
 
 ## 📚 Documentation

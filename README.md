@@ -2,6 +2,8 @@
 
 A comprehensive network automation toolkit for configuring and deploying infrastructure on Bivicom IoT devices. This project combines device discovery, SSH automation, UCI network configuration, and infrastructure deployment into a unified workflow.
 
+> **Note**: This is a fork of the original [Loranet-Technologies/bivicom-config-bot](https://github.com/Loranet-Technologies/bivicom-config-bot) repository with GUI window visibility fixes and improved documentation.
+
 ## ⚡ **Quick Install & Use**
 
 ```bash

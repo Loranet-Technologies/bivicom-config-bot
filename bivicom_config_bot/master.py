@@ -19,7 +19,138 @@ import sys
 import os
 import argparse
 import logging
+import shutil
+import platform
 from datetime import datetime
+
+
+def check_requirements():
+    """Check if all required dependencies are installed"""
+    print("🔍 Checking system requirements...")
+
+    missing_requirements = []
+    warnings = []
+
+    # Detect operating system
+    system = platform.system().lower()
+    if system == "darwin":
+        os_name = "macOS"
+        os_type = "macos"
+    elif system == "windows":
+        os_name = "Windows"
+        os_type = "windows"
+    elif system == "linux":
+        # Try to detect specific Linux distribution
+        try:
+            with open("/etc/os-release", "r") as f:
+                os_release = f.read().lower()
+                if "ubuntu" in os_release or "debian" in os_release:
+                    os_name = "Ubuntu/Debian Linux"
+                    os_type = "ubuntu"
+                elif "centos" in os_release or "rhel" in os_release or "fedora" in os_release:
+                    os_name = "CentOS/RHEL/Fedora Linux"
+                    os_type = "centos"
+                else:
+                    os_name = "Linux"
+                    os_type = "linux"
+        except:
+            os_name = "Linux"
+            os_type = "linux"
+    else:
+        os_name = system.title()
+        os_type = "unknown"
+
+    print(f"📍 Detected OS: {os_name}")
+
+    # Check Python packages
+    try:
+        import paramiko
+        print("✅ paramiko is installed")
+    except ImportError:
+        missing_requirements.append(("paramiko", "python"))
+
+    # Check system utilities
+    if shutil.which("sshpass"):
+        print("✅ sshpass is installed")
+    else:
+        missing_requirements.append(("sshpass", "system"))
+
+    # Check if network_config.sh script exists
+    script_path = os.path.join(os.path.dirname(__file__), "network_config.sh")
+    if os.path.exists(script_path) and os.access(script_path, os.X_OK):
+        print("✅ network_config.sh script exists and is executable")
+    else:
+        missing_requirements.append((f"network_config.sh script (expected at {script_path})", "file"))
+
+    # Check Python version
+    if sys.version_info >= (3, 7):
+        print(f"✅ Python {sys.version.split()[0]} is compatible")
+    else:
+        missing_requirements.append(("Python 3.7+ (current version is too old)", "python"))
+
+    # Show results
+    if missing_requirements:
+        print("\n❌ Missing requirements:")
+        for req, req_type in missing_requirements:
+            print(f"   - {req}")
+
+        print(f"\n💡 Installation instructions for {os_name}:")
+
+        # Python packages installation
+        python_reqs = [req for req, req_type in missing_requirements if req_type == "python"]
+        if python_reqs:
+            print("\n📦 Python packages:")
+            if os_type == "windows":
+                print("   pip install -r requirements.txt")
+            else:
+                print("   pip3 install -r requirements.txt")
+                print("   # Or with pip:")
+                print("   pip install -r requirements.txt")
+
+        # System utilities installation
+        system_reqs = [req for req, req_type in missing_requirements if req_type == "system"]
+        if system_reqs:
+            print(f"\n🔧 System utilities for {os_name}:")
+            if os_type == "macos":
+                print("   # Install sshpass:")
+                print("   brew install hudochenkov/sshpass/sshpass")
+            elif os_type == "ubuntu":
+                print("   # Install sshpass:")
+                print("   sudo apt-get update")
+                print("   sudo apt-get install sshpass")
+            elif os_type == "centos":
+                print("   # Install sshpass:")
+                print("   sudo yum install sshpass")
+                print("   # Or on newer versions:")
+                print("   sudo dnf install sshpass")
+            elif os_type == "windows":
+                print("   # Install sshpass:")
+                print("   # Option 1: Using Chocolatey (recommended)")
+                print("   choco install sshpass")
+                print("   # Option 2: Using WSL")
+                print("   # Install Windows Subsystem for Linux, then:")
+                print("   wsl sudo apt-get install sshpass")
+            else:
+                print("   # Install sshpass:")
+                print("   # Please check your package manager or visit:")
+                print("   # https://sourceforge.net/projects/sshpass/")
+
+        # File requirements
+        file_reqs = [req for req, req_type in missing_requirements if req_type == "file"]
+        if file_reqs:
+            print("\n📁 Missing files:")
+            print("   Please ensure all project files are properly extracted.")
+
+        print("\n🔄 After installing requirements, run this command again.")
+        return False
+
+    if warnings:
+        print("\n⚠️  Warnings:")
+        for warning in warnings:
+            print(f"   - {warning}")
+
+    print("\n✅ All requirements met! Starting Bivicom Network Bot...\n")
+    return True
 
 
 class NetworkBot:
@@ -282,11 +413,15 @@ class NetworkBot:
 
 def main():
     """Main function"""
+    # Check requirements before proceeding
+    if not check_requirements():
+        sys.exit(1)
+
     parser = argparse.ArgumentParser(description="Bivicom Network Bot - Scans for devices and runs complete network configuration sequence")
     parser.add_argument("--ip", default="192.168.1.1", help="Target IP address to scan for (default: 192.168.1.1)")
     parser.add_argument("--interval", type=int, default=10, help="Scan interval in seconds (default: 10)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Show full output from all commands (default: show only summary)")
-    
+
     args = parser.parse_args()
     
     print("Bivicom Network Bot")

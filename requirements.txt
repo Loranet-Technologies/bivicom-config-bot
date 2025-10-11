@@ -1,9 +1,22 @@
-# Core dependencies for Bivicom Configurator V1
+# Core dependencies for Bivicom Configurator
 paramiko>=2.7.0
-python-dotenv>=1.0.0  # For .env file support
+python-dotenv>=1.0.0
 
-# GUI dependencies (optional)
-plyer>=2.0.0  # For system notifications
+# GUI dependencies
+plyer>=2.0.0
 
-# Build dependencies (optional)
-pyinstaller>=4.0  # For creating standalone executables
+# Build dependencies
+pyinstaller>=4.0
+
+# System dependencies (install separately):
+# - sshpass (for password-based SSH authentication in shell scripts)
+#   Ubuntu/Debian: sudo apt-get update && sudo apt-get install sshpass
+#   CentOS/RHEL/Fedora: sudo yum install sshpass (or sudo dnf install sshpass)
+#   macOS: brew install hudochenkov/sshpass/sshpass
+#   Windows: choco install sshpass (or use WSL: wsl sudo apt-get install sshpass)
+
+# Development dependencies (optional)
+# pytest>=6.0
+# black>=21.0
+# flake8>=3.8
+# mypy>=0.800
